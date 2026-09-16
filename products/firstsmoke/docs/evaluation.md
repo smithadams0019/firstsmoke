@@ -305,8 +305,12 @@ two public clips, at the shipped threshold:
 
 | Clip | What it contains | What Firstsmoke did |
 |---|---|---|
-| `waldo-canyon-clear-to-onset.mp4` (Steve Moraco, CC BY 3.0), 21.6 s a frame | clear sky, then a smoke column from about 0:20 | 240 of 1,200 frames read; 22 flags. Nine of them, from 0:03 to 0:19, come before any smoke is in frame. The highest score, 0.75 at 0:44, is on the smoke column |
+| `waldo-canyon-clear-to-onset.mp4` (Steve Moraco, CC BY 3.0), 21.6 s a frame | clear sky, then a smoke column from about 0:20 | 240 of 1,200 frames read; 27 flags. Nine of them, 0:03 to 0:19, come before any smoke is in frame. The highest score, 0.75 at 0:43, is on the smoke column |
 | `grand-canyon-clouds-timelapse.mp4` (NPS, CC BY 4.0), 1 s a frame assumed | cloud over the canyon, no smoke | 42 of 1,108 frames read; 5 flags, all false, highest 0.51 |
+
+Those are the deployed service's own results. A local run of the Waldo clip gave
+22 flags with the same peak, so small decoder or CPU differences move the weakest
+flags either side of 0.45.
 
 Both are what the numbers above predict: on one camera it cries wolf on cloud,
 and it does find a real column eventually.
