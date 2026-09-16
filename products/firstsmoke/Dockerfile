@@ -78,6 +78,11 @@ ENV FIRSTSMOKE_STATIC=/app/static \
     FIRSTSMOKE_NETWORK=/app/data/network/hpwren_sites.js \
     FIRSTSMOKE_CALIBRATION=/app/data/calibration.json
 
+# The commit the image was built from, reported by /version. Pass it from a
+# clean checkout: docker build --build-arg GIT_SHA=$(git rev-parse HEAD)
+ARG GIT_SHA=unknown
+ENV OPENCV26_GIT_SHA=${GIT_SHA}
+
 WORKDIR /app
 USER watch
 
