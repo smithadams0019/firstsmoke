@@ -76,7 +76,7 @@ running version is printed at `/version` and in the interface.
 # from the repository root
 uv venv .venv --python 3.13
 uv pip install --python .venv/bin/python -e packages/visioncore -e packages/servicekit
-uv pip install --python .venv/bin/python -e products/firstsmoke
+uv pip install --python .venv/bin/python -e "products/firstsmoke[dev]"
 
 # the four bundled incidents, rendered once (about 100 seconds)
 .venv/bin/python -c "from pathlib import Path; from firstsmoke.scenarios import build_all; \
@@ -91,6 +91,7 @@ Open http://127.0.0.1:8099 and press one of the four incidents.
 ### Test
 
 ```bash
+# if you installed without [dev]: uv pip install --python .venv/bin/python pytest==9.1.1 ruff==0.16.7
 .venv/bin/python -m pytest products/firstsmoke/tests -q          # 173 tests
 .venv/bin/python -m pytest products/firstsmoke/tests -q -m "not slow"   # skip the agent runs
 .venv/bin/ruff check products/firstsmoke
