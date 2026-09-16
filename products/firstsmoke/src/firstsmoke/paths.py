@@ -33,3 +33,7 @@ def scenario_dir() -> Path:
 
 def network_file() -> Path:
     return _resolve("FIRSTSMOKE_NETWORK", "data", "network", "hpwren_sites.js")
+
+
+def calibration_file() -> Path:
+    return _resolve("FIRSTSMOKE_CALIBRATION", "docs", "calibration.json")

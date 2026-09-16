@@ -64,6 +64,10 @@ from .frames import CameraFrame, Sequence_, prepare
 from .geometry import CrossingRefused, Ray, cross_rays, haversine_m
 
 FIGLIB_CACHE = Path.home() / ".cache" / "firstsmoke" / "figlib"
+EVIDENCE_FLOOR = 0.25
+"""The lowest confidence a clear-frame candidate needs to count toward its camera's
+nuisance map. Below every threshold on the operating curve, so nothing that could
+become a false positive is left out."""
 SWEEP_THRESHOLDS = (0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65)
 FRAME_RE = re.compile(r"^(\d{10})_([+-]?\d+)\.jpg$")
 SEQUENCE_RE = re.compile(r"^(\d{8})_FIRE_(.+)$")
@@ -261,8 +265,13 @@ def run_sequence(
             # them, and the confidences they reached.
             clear_frames_seen += 1
             clear_confidences.append(round(best.confidence, 4))
+            # Only candidates strong enough to matter. Every faint blob a frame
+            # produces would light up most of the grid and turn the nuisance map
+            # into a map of texture; the thing worth learning is where this
+            # camera produces candidates that could actually become an alarm.
             for detection in reading.detections:
-                coverage += downscale_mask(detection.region.mask)
+                if detection.confidence >= EVIDENCE_FLOOR:
+                    coverage += downscale_mask(detection.region.mask)
         if item.is_smoke:
             if best.confidence >= threshold and first_alert is None:
                 first_alert = item.offset_s
@@ -547,6 +556,56 @@ class Evaluation:
         }
 
 
+VARIANTS: dict[str, tuple[bool, bool]] = {
+    "map": (True, False),
+    "ceiling": (False, True),
+    "map+ceiling": (True, True),
+}
+"""The calibrations compared, as ``(use_nuisance, use_ceiling)``."""
+
+SELECTION_RULE = (
+    "Declared before the ablation was run: at the shipped 0.35 threshold, on the "
+    "sequences with a held-out calibration, choose the variant with the fewest false "
+    "positives per camera-day among those that lose no more than 2 of the fires the "
+    "uncalibrated detector found on those same sequences."
+)
+MAX_FIRES_LOST = 2
+
+
+def choose_variant(before: Evaluation, variants: dict[str, Evaluation]) -> tuple[str, list[dict]]:
+    """Apply :data:`SELECTION_RULE`. Returns the choice and the table it was made from."""
+    rows = []
+    for name, after in variants.items():
+        pairs = [
+            (b, a) for b, a in zip(before.results, after.results, strict=True) if a.calibrated
+        ]
+        minutes = sum(b.negative_minutes for b, _ in pairs) or 1.0
+        found_before = sum(1 for b, _ in pairs if b.detected)
+        found_after = sum(1 for _, a in pairs if a.detected)
+        rows.append(
+            {
+                "variant": name,
+                "sequences": len(pairs),
+                "fires_found_before": found_before,
+                "fires_found_after": found_after,
+                "fires_lost": found_before - found_after,
+                "fp_per_camera_day_before": round(
+                    sum(b.false_positive_frames for b, _ in pairs) / (minutes / 1440.0), 1
+                ),
+                "fp_per_camera_day_after": round(
+                    sum(a.false_positive_frames for _, a in pairs) / (minutes / 1440.0), 1
+                ),
+            }
+        )
+    eligible = [r for r in rows if r["fires_lost"] <= MAX_FIRES_LOST]
+    pool = eligible or rows
+    chosen = min(pool, key=lambda r: r["fp_per_camera_day_after"])["variant"]
+    for row in rows:
+        row["eligible"] = row in eligible
+        row["chosen"] = row["variant"] == chosen
+    return chosen, rows
+
+
 def evaluate_calibrated(
     cache: Path = FIGLIB_CACHE,
     *,
@@ -555,7 +614,8 @@ def evaluate_calibrated(
     limit: int | None = None,
     confirmer=None,
     progress=None,
-) -> tuple[Evaluation, Evaluation, CalibrationSet]:
+    variants: dict[str, tuple[bool, bool]] | None = None,
+) -> tuple[Evaluation, dict[str, Evaluation], dict[str, CalibrationSet]]:
     """Two passes: measure uncalibrated, then measure again with a holdout.
 
     Pass one runs every sequence with no calibration and, while doing so,
@@ -595,57 +655,55 @@ def evaluate_calibrated(
             progress(index + 1, len(loaded), f"{name} (uncalibrated)", result)
 
     # ---- fit, holding out the sequence each calibration will be used on -----
-    calibrations = CalibrationSet()
-    per_sequence: dict[str, CameraCalibration | None] = {}
-    for name, sequence, _labelled in loaded:
-        camera_id = sequence.camera.camera_id
-        others = [e for e in evidence if e.camera_id == camera_id and e.sequence != name]
-        fitted = combine(others, camera_id)
-        per_sequence[name] = fitted
-        if fitted is not None:
-            calibrations.add(fitted)
-
-    # ---- pass two: the same frames, with the held-out calibration ----------
-    after: list[SequenceResult] = []
-    for index, (name, sequence, labelled) in enumerate(loaded):
-        result = run_sequence(
-            sequence, labelled, threshold=threshold, confirmer=confirmer,
-            calibration=per_sequence[name],
+    # ---- then pass two, once per variant, on the same loaded frames ---------
+    variants = variants or VARIANTS
+    results: dict[str, Evaluation] = {}
+    sets: dict[str, CalibrationSet] = {}
+    for variant, (use_nuisance, use_ceiling) in variants.items():
+        calibrations = CalibrationSet()
+        after: list[SequenceResult] = []
+        for index, (name, sequence, labelled) in enumerate(loaded):
+            camera_id = sequence.camera.camera_id
+            others = [e for e in evidence if e.camera_id == camera_id and e.sequence != name]
+            fitted = combine(
+                others, camera_id, use_nuisance=use_nuisance, use_ceiling=use_ceiling
+            )
+            if fitted is not None:
+                calibrations.add(fitted)
+            result = run_sequence(
+                sequence, labelled, threshold=threshold, confirmer=confirmer,
+                calibration=fitted,
+            )
+            result.sequence = name
+            after.append(result)
+            if progress:
+                progress(index + 1, len(loaded), f"{name} ({variant})", result)
+        by_date: dict[str, list[tuple[str, SequenceResult]]] = {}
+        for result in after:
+            by_date.setdefault(result.sequence.split("_")[0], []).append(
+                (result.sequence, result)
+            )
+        results[variant] = Evaluation(
+            after, threshold, cross_camera_consistency(by_date, network),
+            [
+                *_notes(),
+                f"Calibration variant '{variant}'. Each camera's calibration was fitted only "
+                "from that camera's clear frames on OTHER dates, never from the sequence "
+                "being scored. Cameras appearing once in the set receive no calibration.",
+            ],
         )
-        result.sequence = name
-        after.append(result)
-        if progress:
-            progress(index + 1, len(loaded), f"{name} (calibrated)", result)
+        sets[variant] = calibrations
 
-    notes_before = [
-        *_notes(),
-        "This pass runs with no per-camera calibration. It is the baseline the "
-        "calibrated pass is compared against.",
-    ]
-    notes_after = [
-        *_notes(),
-        "Each camera's calibration was fitted only from that camera's clear frames on "
-        "OTHER dates, never from the sequence being scored. Cameras appearing once in "
-        "the set receive no calibration and are counted as uncalibrated.",
-    ]
     by_date_before: dict[str, list[tuple[str, SequenceResult]]] = {}
-    by_date_after: dict[str, list[tuple[str, SequenceResult]]] = {}
     for result in before:
         by_date_before.setdefault(result.sequence.split("_")[0], []).append(
             (result.sequence, result)
         )
-    for result in after:
-        by_date_after.setdefault(result.sequence.split("_")[0], []).append(
-            (result.sequence, result)
-        )
-
-    return (
-        Evaluation(before, threshold, cross_camera_consistency(by_date_before, network),
-                   notes_before),
-        Evaluation(after, threshold, cross_camera_consistency(by_date_after, network),
-                   notes_after),
-        calibrations,
+    baseline = Evaluation(
+        before, threshold, cross_camera_consistency(by_date_before, network),
+        [*_notes(), "No per-camera calibration. The baseline for the comparison."],
     )
+    return baseline, results, sets
 
 
 def _notes() -> list[str]:

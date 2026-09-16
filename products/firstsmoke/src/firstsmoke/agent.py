@@ -43,6 +43,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Protocol
 
+from .calibration import CalibrationSet
 from .cameras import Camera, Consultation, Network
 from .confirm import SmokeConfirmer
 from .detector import CONFIRM_AT, SUSPECT_AT, CameraReading, CameraWatch, Detection, Verdict
@@ -253,6 +254,7 @@ class Lookout:
         source: FrameSource,
         *,
         confirmer: SmokeConfirmer | None = None,
+        calibrations: CalibrationSet | None = None,
         suspect_at: float = SUSPECT_AT,
         confirm_at: float = CONFIRM_AT,
         max_consult_rounds: int = MAX_CONSULT_ROUNDS,
@@ -261,6 +263,7 @@ class Lookout:
         self.source = source
         self.network = source.network
         self.confirmer = confirmer
+        self.calibrations = calibrations
         self.suspect_at = suspect_at
         self.confirm_at = confirm_at
         self.max_consult_rounds = max_consult_rounds
@@ -286,6 +289,7 @@ class Lookout:
         if watch is None:
             watch = CameraWatch(
                 camera, confirmer=self.confirmer,
+                calibration=self.calibrations.get(camera.camera_id) if self.calibrations else None,
                 suspect_at=self.suspect_at, confirm_at=self.confirm_at,
             )
             self.watches[camera.camera_id] = watch

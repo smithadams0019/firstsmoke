@@ -359,7 +359,7 @@ def reject_habitual(
     if calibration is None or not calibration.trustworthy:
         return None
 
-    habituation = calibration.habituation(region.mask)
+    habituation = calibration.habituation(region.mask) if calibration.use_nuisance else 0.0
     if habituation >= HABITUAL_REJECT_AT:
         return Rejection(
             "HABITUAL_REGION",
@@ -380,7 +380,7 @@ def reject_habitual(
         )
 
     ceiling = calibration.clear_p95 * BASELINE_MARGIN
-    if confidence <= ceiling and ceiling > 0.0:
+    if calibration.use_ceiling and confidence <= ceiling and ceiling > 0.0:
         return Rejection(
             "BELOW_CAMERA_BASELINE",
             "an ordinary day on this camera",

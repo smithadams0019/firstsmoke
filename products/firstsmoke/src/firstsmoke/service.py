@@ -33,12 +33,13 @@ from visioncore import Evidence, RunRecord
 
 from . import __version__
 from .agent import Lookout, ReplaySource, State
+from .calibration import CalibrationSet
 from .candidates import draw_horizon, draw_regions
 from .confirm import load_confirmer
 from .detector import CameraReading
 from .evaluate import default_network
 from .frames import Incident, load_bundle
-from .paths import scenario_dir, static_dir
+from .paths import calibration_file, scenario_dir, static_dir
 from .scenarios import SCENARIOS, ensure_scenario, scenario_catalogue
 
 PRODUCT = ProductInfo(
@@ -132,7 +133,15 @@ def analyze(ctx: JobContext) -> RunRecord:
                 f"({event['confidence_before']:.2f} to {event['confidence_after']:.2f})"
             )
 
-    lookout = Lookout(ReplaySource(incident), confirmer=confirmer, on_event=on_event)
+    calibrations = load_calibrations()
+    if calibrations is not None:
+        record.params["calibrated_cameras"] = sum(
+            1 for camera in incident.network if calibrations.get(camera.camera_id)
+        )
+    lookout = Lookout(
+        ReplaySource(incident), confirmer=confirmer, calibrations=calibrations,
+        on_event=on_event,
+    )
     alert = lookout.run()
 
     ctx.progress(88, "collecting the frames behind the decision")
@@ -189,6 +198,22 @@ def analyze(ctx: JobContext) -> RunRecord:
 
     ctx.progress(100, "done")
     return record
+
+
+def load_calibrations() -> CalibrationSet | None:
+    """Per-camera calibrations, if the operator has fitted any.
+
+    A camera with no history has nothing to be calibrated against, so the
+    rendered demonstration incidents run without one; a real network fitted with
+    scripts/evaluate.py writes docs/calibration.json, which is picked up here.
+    """
+    path = calibration_file()
+    if not path.is_file():
+        return None
+    try:
+        return CalibrationSet.load(path)
+    except (ValueError, KeyError, OSError):
+        return None
 
 
 def build_config() -> ServiceConfig:

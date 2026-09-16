@@ -90,6 +90,11 @@ class CameraCalibration:
     sources: list[str] = field(default_factory=list)
     """Which sequences this was fitted from. Printed in the evaluation so the
     holdout can be checked rather than taken on trust."""
+    use_nuisance: bool = True
+    use_ceiling: bool = True
+    """The two rules can be switched separately, because the evaluation measured
+    them separately: the map is what catches a persistent feature, the ceiling is
+    a per-camera raised threshold, and they cost detections very differently."""
 
     @property
     def trustworthy(self) -> bool:
@@ -118,6 +123,8 @@ class CameraCalibration:
             "clear_p50": round(self.clear_p50, 4),
             "trustworthy": self.trustworthy,
             "sources": list(self.sources),
+            "use_nuisance": self.use_nuisance,
+            "use_ceiling": self.use_ceiling,
             "habitual_cells": int((self.nuisance >= HABITUAL_AT).sum()),
             "peak_nuisance": round(float(self.nuisance.max()), 4),
             "grid": [round(float(v), 4) for v in self.nuisance.ravel()],
@@ -135,6 +142,8 @@ class CameraCalibration:
             clear_p95=float(data["clear_p95"]),
             clear_p50=float(data["clear_p50"]),
             sources=list(data.get("sources", [])),
+            use_nuisance=bool(data.get("use_nuisance", True)),
+            use_ceiling=bool(data.get("use_ceiling", True)),
         )
 
 
@@ -191,7 +200,13 @@ def empty_coverage() -> np.ndarray:
     return np.zeros((GRID_H, GRID_W), np.float32)
 
 
-def combine(evidence: list[ClearFrameEvidence], camera_id: str) -> CameraCalibration | None:
+def combine(
+    evidence: list[ClearFrameEvidence],
+    camera_id: str,
+    *,
+    use_nuisance: bool = True,
+    use_ceiling: bool = True,
+) -> CameraCalibration | None:
     """Build one camera's calibration by pooling the evidence handed in.
 
     The caller decides what goes in, which is the whole point: the evaluation
@@ -217,6 +232,8 @@ def combine(evidence: list[ClearFrameEvidence], camera_id: str) -> CameraCalibra
         clear_p95=float(np.percentile(values, 95)),
         clear_p50=float(np.percentile(values, 50)),
         sources=sorted(e.sequence for e in mine),
+        use_nuisance=use_nuisance,
+        use_ceiling=use_ceiling,
     )
 
 

@@ -21,7 +21,13 @@ import time
 from pathlib import Path
 
 from firstsmoke.confirm import load_confirmer
-from firstsmoke.evaluate import FIGLIB_CACHE, evaluate_calibrated
+from firstsmoke.evaluate import (
+    FIGLIB_CACHE,
+    SELECTION_RULE,
+    choose_variant,
+    default_network,
+    evaluate_calibrated,
+)
 
 OUT = Path(__file__).resolve().parents[1] / "docs" / "evaluation.json"
 
@@ -59,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     print("confirmer:", confirmer.path.name if confirmer else "not loaded, classical evidence only")
 
     started = time.perf_counter()
-    before, evaluation, calibrations = evaluate_calibrated(
+    before, variants, sets = evaluate_calibrated(
         args.cache,
         threshold=args.threshold,
         stride=args.stride,
@@ -69,36 +75,42 @@ def main(argv: list[str] | None = None) -> int:
     )
     elapsed = time.perf_counter() - started
 
+    chosen, ablation = choose_variant(before, variants)
+    evaluation = variants[chosen]
+
     payload = evaluation.to_dict()
     payload["uncalibrated"] = before.to_dict()
-    payload["calibration"] = calibrations.summary()
+    payload["selection_rule"] = SELECTION_RULE
+    payload["chosen_variant"] = chosen
+    payload["ablation"] = ablation
+    payload["variants"] = {
+        name: {
+            "summary": ev.summary(),
+            "operating_curve": ev.operating_curve(),
+            "corroboration_curve": ev.corroboration_curve(default_network()),
+        }
+        for name, ev in variants.items()
+    }
+    payload["calibration"] = sets[chosen].summary()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2))
-    calibrations.save(args.out.parent / "calibration.json")
+    sets[chosen].save(args.out.parent / "calibration.json")
 
-    print(f"\n{len(evaluation.results)} sequences, two passes, in {elapsed:.0f} s")
-
-    # The comparison the whole exercise exists to produce, restricted to the
-    # sequences a holdout calibration was actually available for, so the two
-    # columns describe the same fires.
-    pairs = [
-        (b, a) for b, a in zip(before.results, evaluation.results, strict=True) if a.calibrated
-    ]
-    if pairs:
-        b_fp = sum(b.false_positive_frames for b, _ in pairs)
-        a_fp = sum(a.false_positive_frames for _, a in pairs)
-        b_hit = sum(1 for b, _ in pairs if b.detected)
-        a_hit = sum(1 for _, a in pairs if a.detected)
-        b_min = sum(b.negative_minutes for b, _ in pairs)
+    print(f"\n{len(evaluation.results)} sequences, {1 + len(variants)} passes, in {elapsed:.0f} s")
+    print("\n" + SELECTION_RULE)
+    print(f"\n{'variant':>12}  {'seqs':>4}  {'fires before':>12}  {'after':>5}  "
+          f"{'lost':>4}  {'fp/day before':>13}  {'after':>7}")
+    for row in ablation:
+        mark = "  <- chosen" if row["chosen"] else ""
+        if not row["eligible"]:
+            mark = "  (loses too many)"
         print(
-            f"\nOn the {len(pairs)} sequences with a held-out calibration:\n"
-            f"  false positives  {b_fp:5d} -> {a_fp:5d} frames   "
-            f"({b_fp / (b_min / 1440.0):.1f} -> {a_fp / (b_min / 1440.0):.1f} per camera-day)\n"
-            f"  fires detected   {b_hit:5d} -> {a_hit:5d} of {len(pairs)}"
+            f"{row['variant']:>12}  {row['sequences']:>4}  {row['fires_found_before']:>12}  "
+            f"{row['fires_found_after']:>5}  {row['fires_lost']:>4}  "
+            f"{row['fp_per_camera_day_before']:>13.1f}  "
+            f"{row['fp_per_camera_day_after']:>7.1f}{mark}"
         )
-        uncal = [a for a in evaluation.results if not a.calibrated]
-        print(f"  {len(uncal)} sequences had no other date to calibrate from and are unchanged")
-    print()
+    print(f"\nOperating curve, variant '{chosen}', all {len(evaluation.results)} sequences:")
     print(f"{'threshold':>9}  {'detection':>9}  {'median':>7}  {'fp':>9}  {'fp/cam-day':>10}")
     for row in evaluation.operating_curve():
         at = row["median_time_to_alert_s"]
