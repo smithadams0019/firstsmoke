@@ -277,6 +277,9 @@ class TestTracker:
     def test_a_track_closes_after_too_many_misses(self):
         tracker = Tracker("cam", frame_width=600)
         tracker.update(0, START, [make_region(300, 100, 40, 40)])
+        track = tracker.tracks[0]
         for i in range(1, 5):
             tracker.update(i, START + timedelta(minutes=i), [])
-        assert not tracker.tracks[0].alive
+        assert not track.alive
+        # and, being closed, it is dropped rather than held with its mask forever
+        assert tracker.tracks == []

@@ -25,6 +25,7 @@ into progress messages and its evidence frames into files the UI can fetch.
 
 from __future__ import annotations
 
+import gc
 import json
 import os
 from pathlib import Path
@@ -47,7 +48,7 @@ from .evaluate import default_network
 from .frames import IMAGE_SUFFIXES, VIDEO_SUFFIXES, Incident, SequenceError, load_bundle
 from .paths import calibration_file, scenario_dir, static_dir
 from .scenarios import SCENARIOS, ensure_scenario, scenario_catalogue
-from .uploads import UploadReport, is_bundle, load_upload, stills_to_zip
+from .uploads import UploadReport, UploadSource, is_bundle, open_upload, stills_to_zip
 
 PRODUCT = ProductInfo(
     slug="firstsmoke",
@@ -101,61 +102,88 @@ so a clip full of cloud cannot produce an unreadable list; reaching it stops the
 watch and the result says so."""
 
 
-def _flag_frames(lookout: Lookout, ctx: JobContext, record: RunRecord) -> None:
-    """One annotated frame per flag on uploaded footage: the frame that raised it."""
-    for number, alert in enumerate(lookout.alerts, start=1):
-        reading = next(
-            (r for r in reversed(lookout.readings)
-             if r.camera_id == alert.origin_camera and r.timestamp == alert.raised_at),
-            None,
+def _save_flag(lookout: Lookout, alert: dict[str, Any], ctx: JobContext, record: RunRecord) -> None:
+    """Annotate the frame that raised a flag on uploaded footage, as it is raised.
+
+    An upload keeps only each camera's latest reading, so this has to happen now:
+    by the end of the run the frame is gone, which is the point."""
+    reading = lookout.latest.get(alert["origin_camera"])
+    if reading is None:
+        return
+    number = len(lookout.alerts)
+    uri = _overlay(reading, ctx, f"flag-{number:02d}-{reading.frame_index:03d}")
+    if not uri:
+        return
+    record.add_evidence(
+        Evidence(
+            label=lookout.network.get(reading.camera_id).label,
+            kind="overlay",
+            uri=uri,
+            frame_index=reading.frame_index,
+            caption=alert["headline"],
+            metrics={
+                "confidence": round(float(alert["confidence"]), 3),
+                "usability": reading.scene.usability.value,
+                "flag": number,
+                "at": reading.timestamp.isoformat(),
+            },
         )
-        if reading is None:
-            continue
-        uri = _overlay(reading, ctx, f"flag-{number:02d}-{reading.frame_index:03d}")
-        if uri:
-            record.add_evidence(
-                Evidence(
-                    label=lookout.network.get(reading.camera_id).label,
-                    kind="overlay",
-                    uri=uri,
-                    frame_index=reading.frame_index,
-                    caption=alert.headline,
-                    metrics={
-                        "confidence": round(alert.confidence, 3),
-                        "usability": reading.scene.usability.value,
-                        "flag": number,
-                        "at": alert.raised_at.isoformat(),
-                    },
-                )
-            )
+    )
 
 
 def analyze(ctx: JobContext) -> RunRecord:
     """Run the escalation loop over an uploaded or bundled incident."""
     record = ctx.record
     upload: UploadReport | None = None
+    source: ReplaySource | UploadSource
     try:
         if is_bundle(ctx.input_path):
             ctx.progress(4, "reading the incident bundle")
             incident: Incident = load_bundle(ctx.input_path)
+            source = ReplaySource(incident)
+            frames = sum(len(s) for s in incident.sequences.values())
+            name, truth = incident.name, incident.truth
         else:
-            ctx.progress(4, "decoding the uploaded footage")
-            incident, upload = load_upload(ctx.input_path, ctx.params)
-            incident.name = str(record.input.get("filename") or incident.name)
+            ctx.progress(4, "opening the uploaded footage")
+            source, upload = open_upload(ctx.input_path, ctx.params)
+            frames = upload.analysed_frames
+            name, truth = str(record.input.get("filename") or source.name), {}
     except (SequenceError, KeyError, ValueError) as exc:
         raise ServiceError("BAD_REQUEST", str(exc)) from exc
+    try:
+        return _watch(ctx, record, source, upload, name, frames, truth)
+    finally:
+        if isinstance(source, UploadSource):
+            source.close()
+        # The lookout and its event callback refer to each other, so its
+        # background models and tracks wait for the cycle collector. Run it now
+        # rather than whenever the next allocation happens to trigger it.
+        del source
+        gc.collect()
+
+
+def _watch(
+    ctx: JobContext,
+    record: RunRecord,
+    source: ReplaySource | UploadSource,
+    upload: UploadReport | None,
+    name: str,
+    frames: int,
+    truth: dict[str, Any],
+) -> RunRecord:
+    network = source.network
     if upload is not None:
         record.input["upload"] = upload.to_dict()
         for note in upload.notes:
             record.warn(note)
-        ctx.note(f"footage decoded: {upload.coverage}", upload=upload.to_dict())
+        ctx.note(f"footage opened: {upload.coverage}", upload=upload.to_dict())
 
     record.input.update(
         {
-            "incident": incident.name,
-            "cameras": len(incident.network),
-            "frames": sum(len(s) for s in incident.sequences.values()),
-            "attribution": incident.network.attribution,
+            "incident": name,
+            "cameras": len(network),
+            "frames": frames,
+            "attribution": network.attribution,
         }
     )
     record.params["threshold"] = _threshold(ctx.params.get("threshold"))
@@ -167,9 +195,7 @@ def analyze(ctx: JobContext) -> RunRecord:
             "evidence alone. Run scripts/train_confirmer.py to build it."
         )
 
-    timeline = incident.timeline()
-    total = max(len(timeline), 1)
-    saved: set[str] = set()
+    total = max(len(source.timeline()), 1)
 
     def on_event(event: dict[str, Any]) -> None:
         kind = event.get("type")
@@ -177,7 +203,7 @@ def analyze(ctx: JobContext) -> RunRecord:
             step = event.get("step", 0)
             ctx.progress(
                 5 + 80.0 * step / total,
-                f"{event['at'][11:16]} watching {len(incident.network)} cameras",
+                f"{event['at'][11:16]} watching {len(network)} cameras",
                 state=event.get("state"),
             )
         elif kind == "transition":
@@ -194,23 +220,25 @@ def analyze(ctx: JobContext) -> RunRecord:
                 f"re-read {event['camera_id']} over {event['frames']} earlier frames "
                 f"({event['confidence_before']:.2f} to {event['confidence_after']:.2f})"
             )
+        elif kind == "alert" and upload is not None:
+            _save_flag(lookout, event["alert"], ctx, record)
 
     calibrations = load_calibrations()
     if calibrations is not None:
         record.params["calibrated_cameras"] = sum(
-            1 for camera in incident.network if calibrations.get(camera.camera_id)
+            1 for camera in network if calibrations.get(camera.camera_id)
         )
     lookout = Lookout(
-        ReplaySource(incident), confirmer=confirmer, calibrations=calibrations,
+        source, confirmer=confirmer, calibrations=calibrations,
         on_event=on_event, suspect_at=_threshold(ctx.params.get("threshold")),
         keep_watching=upload is not None, max_alerts=UPLOAD_MAX_FLAGS,
+        keep_readings=upload is None,
     )
     alert = lookout.run()
 
     ctx.progress(88, "collecting the frames behind the decision")
-    if upload is not None:
-        _flag_frames(lookout, ctx, record)
-    for reading in lookout.readings if upload is None else []:
+    saved: set[str] = set()
+    for reading in lookout.readings:
         if reading.camera_id in saved:
             continue
         if reading.detections or reading.scene.blind:
@@ -219,7 +247,7 @@ def analyze(ctx: JobContext) -> RunRecord:
                 saved.add(reading.camera_id)
                 record.add_evidence(
                     Evidence(
-                        label=incident.network.get(reading.camera_id).label,
+                        label=network.get(reading.camera_id).label,
                         kind="overlay",
                         uri=uri,
                         frame_index=reading.frame_index,
@@ -236,7 +264,7 @@ def analyze(ctx: JobContext) -> RunRecord:
     record.metrics.update(
         {
             "state": lookout.state.value,
-            "cameras": len(incident.network),
+            "cameras": len(network),
             "frames_read": summary["frames_read"],
             "cameras_consulted": len({c["camera_id"] for c in summary["consultations"]}),
             "unusable_cameras": len(summary["unusable"]),
@@ -258,7 +286,12 @@ def analyze(ctx: JobContext) -> RunRecord:
     elif lookout.state in (State.WATCH, State.STOOD_DOWN):
         record.metrics["headline"] = "Nothing raised. The watch continues."
 
-    if upload is not None:
+    if upload is not None and isinstance(source, UploadSource):
+        # What was actually decoded, which is less than planned if the watch
+        # stopped early or the file ended before its header said it would.
+        upload.analysed_frames = source.decoded
+        notes = record.input["upload"]["notes"]
+        record.input["upload"] = upload.to_dict() | {"notes": notes}
         record.metrics["coverage"] = upload.coverage
         ended = lookout.transitions and lookout.transitions[-1].trigger == "sequence_ended"
         if not ended:
@@ -272,8 +305,8 @@ def analyze(ctx: JobContext) -> RunRecord:
             record.input["upload"]["stopped_at"] = last.isoformat() if last else None
             record.warn(stopped + ".")
 
-    if incident.truth:
-        record.results.append({"truth": incident.truth})
+    if truth:
+        record.results.append({"truth": truth})
 
     ctx.progress(100, "done")
     return record

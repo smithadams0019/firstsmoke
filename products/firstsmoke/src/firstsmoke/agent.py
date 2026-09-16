@@ -261,6 +261,7 @@ class Lookout:
         on_event=None,
         keep_watching: bool = False,
         max_alerts: int = 8,
+        keep_readings: bool = True,
     ) -> None:
         self.source = source
         self.network = source.network
@@ -270,6 +271,11 @@ class Lookout:
         self.confirm_at = confirm_at
         self.max_consult_rounds = max_consult_rounds
         self.on_event = on_event
+        self.keep_readings = keep_readings
+        """Hold every reading, image and masks included, for the interface. An
+        upload turns this off and keeps only each camera's latest reading: a
+        long clip's readings were most of the memory an upload used."""
+        self.latest: dict[str, CameraReading] = {}
         self.keep_watching = keep_watching
         """Carry on after a flag instead of holding at it. A network holds, because
         a person is about to look. A single uploaded clip has nobody coming, and
@@ -302,6 +308,7 @@ class Lookout:
                 camera, confirmer=self.confirmer,
                 calibration=self.calibrations.get(camera.camera_id) if self.calibrations else None,
                 suspect_at=self.suspect_at, confirm_at=self.confirm_at,
+                keep_readings=self.keep_readings,
             )
             self.watches[camera.camera_id] = watch
         return watch
@@ -431,7 +438,9 @@ class Lookout:
             if frame is None:
                 continue
             reading = self.watch_for(camera).observe(frame)
-            self.readings.append(reading)
+            self.latest[camera.camera_id] = reading
+            if self.keep_readings:
+                self.readings.append(reading)
             self._emit("reading", reading=reading.to_dict())
             if reading.verdict is Verdict.BLIND:
                 self.unusable[camera.camera_id] = reading.scene.reason
@@ -577,7 +586,8 @@ class Lookout:
             return base
 
         reading = watch.observe(frame)
-        self.readings.append(reading)
+        if self.keep_readings:
+            self.readings.append(reading)
         base.reading = reading
 
         if reading.verdict is Verdict.BLIND:
@@ -912,7 +922,7 @@ class Lookout:
             # published HPWREN geometry instead put markers on the wrong
             # continent while the rays were computed from the right one.
             "network": self.network.to_dict(),
-            "frames_read": sum(len(w.readings) for w in self.watches.values()),
+            "frames_read": sum(w.observations for w in self.watches.values()),
             "transitions": [t.to_dict() for t in self.transitions],
             "consultations": [c.to_dict() for c in self.consultations],
             "alerts": [a.to_dict() for a in self.alerts],

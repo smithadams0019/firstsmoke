@@ -10,13 +10,14 @@ import cv2
 import numpy as np
 import pytest
 
-from firstsmoke.agent import Lookout, ReplaySource, State
+from firstsmoke.agent import Lookout, State
 from firstsmoke.frames import SequenceError
 from firstsmoke.uploads import (
+    HISTORY_FRAMES,
     MAX_ANALYSED,
     MIN_ANALYSED,
     is_bundle,
-    load_upload,
+    open_upload,
     plan,
     stills_to_zip,
 )
@@ -61,15 +62,15 @@ class TestStills:
         assert not is_bundle(zipped)
 
     def test_the_camera_has_no_position_and_no_aim(self, zipped):
-        incident, report = load_upload(zipped, {"interval_s": 60})
-        camera = next(iter(incident.network))
+        source, report = open_upload(zipped, {"interval_s": 60})
+        camera = next(iter(source.network))
         assert not camera.position_known
         assert not camera.aim_known
         assert report.analysed_frames == report.total_frames == 16
         assert not report.interval_assumed
 
     def test_an_assumed_interval_is_reported(self, zipped):
-        _, report = load_upload(zipped, {})
+        _, report = open_upload(zipped, {})
         assert report.interval_assumed
         assert any("assumed" in note for note in report.notes)
 
@@ -77,16 +78,19 @@ class TestStills:
         path = tmp_path / "one.jpg"
         path.write_bytes(jpeg(plume_sequence[0].image))
         with pytest.raises(SequenceError, match="one still"):
-            load_upload(path, {})
+            open_upload(path, {})
 
     def test_a_bad_bearing_is_refused(self, zipped):
         with pytest.raises(SequenceError, match="bearing_deg"):
-            load_upload(zipped, {"bearing_deg": 400})
+            open_upload(zipped, {"bearing_deg": 400})
 
     def test_the_watch_never_reports_a_location(self, zipped):
-        incident, _ = load_upload(zipped, {"interval_s": 60})
-        lookout = Lookout(ReplaySource(incident), keep_watching=True, suspect_at=0.3)
+        source, _ = open_upload(zipped, {"interval_s": 60})
+        lookout = Lookout(source, keep_watching=True, suspect_at=0.3, keep_readings=False)
         lookout.run()
+        assert source.decoded == 16
+        assert len(source._buffer) <= HISTORY_FRAMES
+        assert lookout.readings == []
         assert lookout.alerts, "the plume should raise at least one flag"
         for alert in lookout.alerts:
             assert alert.fix is None
@@ -107,13 +111,17 @@ def test_a_video_is_sampled_and_its_coverage_stated(tmp_path, plume_sequence):
         for _ in range(3):
             writer.write(frame.image)
     writer.release()
-    incident, report = load_upload(path, {"interval_s": 20, "bearing_deg": 90, "hfov_deg": 50})
+    source, report = open_upload(path, {"interval_s": 20, "bearing_deg": 90, "hfov_deg": 50})
     assert report.kind == "video"
     assert report.total_frames == 48
     assert report.stride == 1
     assert report.coverage.startswith("analysed 48 of 48")
-    camera = next(iter(incident.network))
+    camera = next(iter(source.network))
     assert camera.aim_known and not camera.position_known
+    frames = [source.read("upload", when) for when in source.timeline()]
+    assert all(f is not None for f in frames)
+    assert source.decoded == 48
+    source.close()
 
 
 def test_the_stills_zip_names_every_still(plume_sequence):

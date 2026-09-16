@@ -25,8 +25,10 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -39,8 +41,6 @@ from .frames import (
     VIDEO_SUFFIXES,
     WORKING_WIDTH,
     CameraFrame,
-    Incident,
-    Sequence_,
     SequenceError,
     decode,
     prepare,
@@ -180,10 +180,70 @@ def plan(total: int, interval_s: float) -> tuple[int, int]:
     return stride, min(available, MAX_ANALYSED)
 
 
-def load_upload(
+HISTORY_FRAMES = 8
+"""Decoded frames held at once. The agent re-reads at most the last four frames of
+the camera that raised a flag, so eight is room to spare, and it is the whole of
+what an upload keeps in memory however long the clip is."""
+
+
+class UploadSource:
+    """A one-camera frame source that decodes on demand.
+
+    The first version decoded the whole clip up front: 240 frames at the working
+    width, plus every reading's copy, took a local service from 1.5 GB to 3.7 GB
+    on one 50-second clip, which on a 4 GB container is an outage. This keeps a
+    short ring of recent frames and nothing else.
+    """
+
+    def __init__(
+        self, camera: Camera, stamps: list[datetime], fetch: Any, close: Any, name: str
+    ) -> None:
+        self.network = Network.from_cameras([camera], name="uploaded footage")
+        self.name = name
+        self._stamps = stamps
+        self._index = {stamp: i for i, stamp in enumerate(stamps)}
+        self._fetch = fetch
+        self._close = close
+        self._buffer: deque[CameraFrame] = deque(maxlen=HISTORY_FRAMES)
+        self.reads = 0
+        self.decoded = 0
+
+    def timeline(self) -> list[datetime]:
+        return list(self._stamps)
+
+    def read(self, camera_id: str, when: datetime) -> CameraFrame | None:
+        if camera_id != UPLOAD_CAMERA_ID:
+            return None
+        frame = next((f for f in self._buffer if f.timestamp == when), None)
+        if frame is None:
+            index = self._index.get(when)
+            frame = None if index is None else self._fetch(index)
+            if frame is None:
+                return None
+            self._buffer.append(frame)
+            self.decoded += 1
+        self.reads += 1
+        return frame
+
+    def history(self, camera_id: str, when: datetime, count: int) -> list[CameraFrame]:
+        earlier = [f for f in self._buffer if f.timestamp < when]
+        self.reads += min(count, len(earlier))
+        return earlier[-count:]
+
+    def describe(self) -> dict[str, Any]:
+        return {"kind": "upload", "incident": self.name, "reads": self.reads,
+                "decoded": self.decoded}
+
+    def close(self) -> None:
+        self._buffer.clear()
+        self._close()
+
+
+def open_upload(
     path: str | Path, params: dict[str, Any], *, width: int = WORKING_WIDTH
-) -> tuple[Incident, UploadReport]:
-    """Read an uploaded video, zip of stills, or single still into a one-camera incident."""
+) -> tuple[UploadSource, UploadReport]:
+    """Open an uploaded video or zip of stills as a one-camera source. Nothing is decoded yet
+    beyond the first frame, which is read to prove the file can be decoded at all."""
     path = Path(path)
     suffix = path.suffix.lower()
     camera = upload_camera(params)
@@ -191,10 +251,10 @@ def load_upload(
 
     if suffix in VIDEO_SUFFIXES:
         interval = given or DEFAULT_VIDEO_INTERVAL_S
-        sequence, report = _video(path, camera, interval, given is None, width)
+        source, report = _video(path, camera, interval, given is None, width)
     elif suffix == ".zip":
         interval = given or DEFAULT_STILLS_INTERVAL_S
-        sequence, report = _stills_zip(path, camera, interval, given is None, width)
+        source, report = _stills_zip(path, camera, interval, given is None, width)
     elif suffix in IMAGE_SUFFIXES:
         raise SequenceError(
             "one still cannot show smoke growing; upload a video, or several stills from the "
@@ -203,10 +263,15 @@ def load_upload(
     else:
         raise SequenceError(f"{suffix or 'that file'} is not a video, a zip of stills or a bundle")
 
-    if len(sequence) < MIN_FRAMES:
+    first = source.timeline()[0] if source.timeline() else None
+    decodable = first is not None and source.read(camera.camera_id, first) is not None
+    if report.analysed_frames < MIN_FRAMES or not decodable:
+        source.close()
         raise SequenceError(
-            f"only {len(sequence)} usable frames; growth needs at least {MIN_FRAMES}"
+            f"only {report.analysed_frames} usable frames could be planned or decoded; "
+            f"growth needs at least {MIN_FRAMES}"
         )
+    source.reads = 0
 
     report.aim_known = camera.aim_known
     if report.interval_assumed:
@@ -228,62 +293,50 @@ def load_upload(
             f"The footage was too long to read whole at a usable spacing, so it was cut after "
             f"{report.analysed_frames} analysed frames ({report.coverage}); the rest was not read."
         )
-
-    network = Network.from_cameras([camera], name="uploaded footage")
-    incident = Incident(
-        network=network,
-        sequences={camera.camera_id: sequence},
-        name=path.name,
-        notes="; ".join(report.notes),
-    )
-    return incident, report
+    return source, report
 
 
 def _video(
     path: Path, camera: Camera, interval: float, assumed: bool, width: int
-) -> tuple[Sequence_, UploadReport]:
+) -> tuple[UploadSource, UploadReport]:
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
         raise SequenceError(
             f"could not open {path.name}; H.264 MP4 is the safest format for this decoder"
         )
-    try:
-        # OpenCV 5 reports -1 for a property the container does not carry, so an
-        # unknown count is found by reading, not trusted from the header.
-        counted = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-        total = counted if counted > 0 else _count(path)
-        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-        stride, wanted = plan(total, interval)
-        seq = Sequence_(camera=camera)
-        raw = 0
-        while len(seq.frames) < wanted:
-            if raw % stride == 0:
-                ok, image = cap.read()
-                if not ok:
-                    break
-                prepared, scale, original = prepare(image, width)
-                seq.frames.append(
-                    CameraFrame(
-                        camera.camera_id, len(seq.frames), prepared,
-                        START + timedelta(seconds=raw * interval),
-                        f"{path.name}#{raw}", scale, original,
-                    )
-                )
-            elif not cap.grab():
-                break
-            raw += 1
-    finally:
-        cap.release()
-    if not seq.frames:
-        raise SequenceError(f"{path.name} decoded to zero frames")
+    # OpenCV 5 reports -1 for a property the container does not carry, so an
+    # unknown count is found by reading, not trusted from the header.
+    counted = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    total = counted if counted > 0 else _count(path)
+    fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+    stride, wanted = plan(total, interval)
+    stamps = [START + timedelta(seconds=i * stride * interval) for i in range(wanted)]
+    position = [0]
+
+    def fetch(index: int) -> CameraFrame | None:
+        target = index * stride
+        if target < position[0]:
+            return None  # a video only goes forwards; the ring buffer covers re-reads
+        while position[0] < target:
+            if not cap.grab():
+                return None
+            position[0] += 1
+        ok, image = cap.read()
+        if not ok:
+            return None
+        position[0] += 1
+        prepared, scale, original = prepare(image, width)
+        return CameraFrame(camera.camera_id, index, prepared, stamps[index],
+                           f"{path.name}#{target}", scale, original)
+
     available = -(-total // stride)
     report = UploadReport(
-        kind="video", total_frames=total, analysed_frames=len(seq.frames), stride=stride,
+        kind="video", total_frames=total, analysed_frames=wanted, stride=stride,
         interval_s=interval, interval_assumed=assumed, spacing_s=stride * interval,
-        capped=available > len(seq.frames), timestamps="interval", aim_known=camera.aim_known,
+        capped=available > wanted, timestamps="interval", aim_known=camera.aim_known,
         fps=fps if fps > 0 else 0.0,
     )
-    return seq, report
+    return UploadSource(camera, stamps, fetch, cap.release, path.name), report
 
 
 def _count(path: Path) -> int:
@@ -299,52 +352,56 @@ def _count(path: Path) -> int:
 
 def _stills_zip(
     path: Path, camera: Camera, interval: float, assumed: bool, width: int
-) -> tuple[Sequence_, UploadReport]:
-    with zipfile.ZipFile(path) as zf:
-        names = sorted(
-            n for n in zf.namelist()
-            if Path(n).suffix.lower() in IMAGE_SUFFIXES
-            and not Path(n).name.startswith(".")
-            and "__MACOSX" not in n
-        )
-        if not names:
-            raise SequenceError("the zip holds no images")
-        stamps = [timestamp_from_name(Path(n).name) for n in names]
-        from_names = all(s is not None for s in stamps) and len(set(stamps)) == len(stamps)
-        # Times in the filenames, when every still has one, beat a stated
-        # interval: they are what the camera recorded.
-        if from_names:
-            order = sorted(range(len(names)), key=lambda i: stamps[i])
-            names = [names[i] for i in order]
-            stamps = [stamps[i] for i in order]
-        stride, wanted = plan(len(names), interval)
-        seq = Sequence_(camera=camera)
-        for raw in range(0, len(names), stride):
-            if len(seq.frames) >= wanted:
-                break
-            try:
-                image = decode(zf.read(names[raw]))
-            except SequenceError:
-                continue
-            prepared, scale, original = prepare(image, width)
-            stamp = stamps[raw] if from_names else START + timedelta(seconds=raw * interval)
-            seq.frames.append(
-                CameraFrame(camera.camera_id, len(seq.frames), prepared, stamp,
-                            Path(names[raw]).name, scale, original)
-            )
+) -> tuple[UploadSource, UploadReport]:
+    zf = zipfile.ZipFile(path)
+    names = sorted(
+        n for n in zf.namelist()
+        if Path(n).suffix.lower() in IMAGE_SUFFIXES
+        and not Path(n).name.startswith(".")
+        and "__MACOSX" not in n
+    )
+    if not names:
+        zf.close()
+        raise SequenceError("the zip holds no images")
+    parsed = [timestamp_from_name(Path(n).name) for n in names]
+    from_names = all(s is not None for s in parsed) and len(set(parsed)) == len(parsed)
+    # Times in the filenames, when every still has one, beat a stated interval:
+    # they are what the camera recorded.
+    if from_names:
+        order = sorted(range(len(names)), key=lambda i: parsed[i])
+        names = [names[i] for i in order]
+        parsed = [parsed[i] for i in order]
+    stride, wanted = plan(len(names), interval)
+    picks = list(range(0, len(names), stride))[:wanted]
+    stamps = [
+        parsed[raw] if from_names else START + timedelta(seconds=raw * interval)  # type: ignore[misc]
+        for raw in picks
+    ]
+
+    def fetch(index: int) -> CameraFrame | None:
+        raw = picks[index]
+        try:
+            image = decode(zf.read(names[raw]))
+        except (SequenceError, KeyError):
+            return None
+        prepared, scale, original = prepare(image, width)
+        return CameraFrame(camera.camera_id, index, prepared, stamps[index],
+                           Path(names[raw]).name, scale, original)
+
     spacing = stride * interval
-    if from_names and len(seq.frames) > 1:
-        spacing = seq.interval_s
+    if from_names and len(stamps) > 1:
+        gaps = [(b - a).total_seconds() for a, b in pairwise(stamps)]
+        spacing = sorted(gaps)[len(gaps) // 2]
     available = -(-len(names) // stride)
     report = UploadReport(
-        kind="stills", total_frames=len(names), analysed_frames=len(seq.frames), stride=stride,
+        kind="stills", total_frames=len(names), analysed_frames=wanted, stride=stride,
         interval_s=interval, interval_assumed=assumed and not from_names, spacing_s=spacing,
-        capped=available > len(seq.frames),
+        capped=available > wanted,
         timestamps="filenames" if from_names else "interval", aim_known=camera.aim_known,
     )
     if from_names:
         report.notes.append("Every still carried a time in its filename, so those times were used.")
-    return seq, report
+    return UploadSource(camera, stamps, fetch, zf.close, path.name), report
 
 
 def stills_to_zip(files: list[tuple[str, bytes]]) -> bytes:

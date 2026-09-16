@@ -259,6 +259,8 @@ class CameraWatch:
         self._repeats = 0
         self._contrasts: list[float] = []
         self._readings: list[CameraReading] = []
+        self.observations = 0
+        """Frames this camera has been shown, kept or not."""
 
     @property
     def readings(self) -> list[CameraReading]:
@@ -272,6 +274,7 @@ class CameraWatch:
 
     def observe(self, frame: CameraFrame, *, learn: bool = True) -> CameraReading:
         start = cv2.getTickCount()
+        self.observations += 1
         scene = assess_scene(
             frame.image,
             previous=self._previous,

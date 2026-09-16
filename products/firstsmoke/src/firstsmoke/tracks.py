@@ -341,6 +341,11 @@ class Tracker:
             if track.track_id not in used_tracks:
                 track.miss()
 
+        # A closed track can never be matched again, and each observation holds
+        # a full-frame mask. Keeping them all grew a 240-frame upload by 2.6 GB
+        # for 1,335 tracks nothing would ever read.
+        self.tracks = [t for t in self.tracks if not t.closed]
+
         for region in regions:
             if id(region) not in used_regions:
                 track = Track(self._next_id, self.camera_id)
