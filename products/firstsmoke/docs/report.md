@@ -337,30 +337,33 @@ Summarised here; the full document with every failure case is
 The shipped configuration is a per-camera nuisance map learnt from each camera's
 clear frames on other dates, and a suspicion threshold of 0.45. Both were chosen
 on 64 development sequences (4,959 frames, 44 cameras) and committed before the
-held-out test set was downloaded. The test set is 130 FIgLib sequences; 94 are
-scored so far (7,272 frames), and the rest are running.
+held-out test set was downloaded. The test set is 130 FIgLib sequences, all
+scored (10,107 frames). An interim run on the first 94 (7,272 frames) is kept
+beside it, because the film quotes the 94-sequence interim numbers. 33 individual
+frames timed out during the test-set download and are missing from the cache.
 
-| At 0.45, map calibration | Test set, held out (94) | Development set, threshold chosen here (64) |
-|---|---|---|
-| One camera: fires found | **78.7%** | 79.4% |
-| One camera: false positives per camera-day | **151.6** | 150.3 |
-| One camera: median time to alert | **+210 s** | +438 s |
-| Two cameras agreeing: fires found | **28.6%** | 42.4% |
-| Two cameras agreeing: false positives per camera-day | **18.4** | 21.7 |
-| Alerts ahead of the human mark | **0** | 0 |
-| Triangulation: median spread between pair fixes | **3.8 km** | 7.4 km |
+| At 0.45, map calibration | Test set, all 130 (full run) | Test set, first 94 (interim) | Development set, threshold chosen here (64) |
+|---|---|---|---|
+| One camera: fires found | **76.9%** | 78.7% | 79.4% |
+| One camera: false positives per camera-day | **154.2** | 151.6 | 150.3 |
+| One camera: median time to alert | **+240 s** | +210 s | +438 s |
+| Two cameras agreeing: fires found | **29.9%** | 28.6% | 42.4% |
+| Two cameras agreeing: false positives per camera-day | **19.6** | 18.4 | 21.7 |
+| Alerts ahead of the human mark | **0** | 0 | 0 |
+| Triangulation: median spread between pair fixes | **6.3 km** | 3.8 km | 7.4 km |
 
 Four things the test set settled:
 
-- **Calibration made no measurable difference on test**: 151.2 false positives
-  per camera-day without it, 151.6 with it, and the same fires found.
-- **Two-camera detection fell** from 42.4% on dev to 28.6% on test. The threshold
+- **Calibration made no measurable difference on test**: 154.2 false positives
+  per camera-day on all 130 with or without it, and the same 100 fires found
+  (interim 94: 151.2 without, 151.6 with).
+- **Two-camera detection fell** from 42.4% on dev to 29.9% on test. The threshold
   sat at the knee of the dev two-camera curve, and the knee did not carry over.
-- **It never alerted ahead of the human mark.** The +210 s is measured against an
+- **It never alerted ahead of the human mark.** The +240 s is measured against an
   annotator who reviewed each sequence in hindsight. Published detectors on the
-  same library report means of 2.3 to 4.7 minutes; our test mean is 7.8.
-- **Triangulation lands kilometres apart.** 4 fixes on 13 multi-summit test dates,
-  with pair fixes a median 3.8 km apart. On synthetic incidents where we placed
+  same library report means of 2.3 to 4.7 minutes; our test mean is 8.8.
+- **Triangulation lands kilometres apart.** 5 fixes on 17 multi-summit test dates,
+  with pair fixes a median 6.3 km apart. On synthetic incidents where we placed
   the fire, the fix lands **13 m** from the truth inside a reported 161 m ellipse,
   so the geometry is right and the input bearings are not.
 
@@ -378,21 +381,21 @@ Derby Gulch was missed; the top box was on a foreground bush.
 ## 8. Limitations
 
 1. **It is not deployable at these false-alarm rates.** On the held-out test set,
-   one camera finds 78.7% of fires at 151.6 false positives per camera-day; with a
-   second camera required it finds 28.6% at 18.4. The persistent false positives
+   one camera finds 76.9% of fires at 154.2 false positives per camera-day; with a
+   second camera required it finds 29.9% at 19.6. The persistent false positives
    on particular views are not caught by the learnt nuisance map, which made no
    measurable difference on test, and we did not identify what they physically are.
 2. **We never beat the human annotator**, on dev or test. A structural lag is built
    into requiring growth before speaking. This must not be sold as early detection.
-3. **Triangulation is not useful on real data yet.** On test, 4 fixes on 13 dates
-   and a median 3.8 km between pair fixes; on dev, 2 of 8 and 7.4 km. It refuses
+3. **Triangulation is not useful on real data yet.** On test, 5 fixes on 17 dates
+   and a median 6.3 km between pair fixes; on dev, 2 of 8 and 7.4 km. It refuses
    rather than guessing, which is the correct failure, but it is a failure.
 4. **A re-aimed camera silently invalidates its bearings.** The published azimuth
    is wrong until the metadata is refreshed. Today the only mitigation is that a
    re-aimed camera stops agreeing with its neighbours and so produces stand-downs
    rather than confident wrong positions. A per-camera azimuth correction fitted
    from long-run disagreement is the fix, and it is not built.
-5. **Small, single-region evidence.** 63 development fires and 94 scored test
+5. **Small, single-region evidence.** 63 development fires and 130 test
    fires, from one network in southern California. Every sequence contains a fire,
    so the clear period is only forty minutes per camera and always immediately
    precedes an ignition; a true false-positive rate needs quiet days, which FIgLib

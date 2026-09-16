@@ -40,18 +40,31 @@ blind camera's silence is never counted as evidence of an empty hillside.
 
 ## Honest summary of the results
 
-On the held-out test set (94 of 130 FIgLib sequences scored so far, configuration
-frozen before download), at the shipped point: **one camera finds 78.7% of fires at
-151.6 false alarms per camera-day, a median of 210 s after the human who labelled
-them. With a second camera required to agree, it finds 28.6% at 18.4.** On the 64
-development sequences where the threshold was chosen, those figures were 79.4% at
-150 (+438 s) and 42.4% at 21.7.
+On all 130 sequences of the held-out FIgLib test set (configuration frozen before
+download), at the shipped point: **one camera finds 76.9% of fires at 154.2 false
+alarms per camera-day, a median of 240 s after the human who labelled them. With a
+second camera required to agree, it finds 29.9% at 19.6.** On the 64 development
+sequences where the threshold was chosen, those figures were 79.4% at 150 (+438 s)
+and 42.4% at 21.7.
 
-- The per-camera calibration made no measurable difference on test: 151.2 false
-  alarms a camera-day without it, 151.6 with it.
-- Two-camera detection fell from 42.4% on dev to 28.6% on test.
+| At 0.45 | Test, all 130 (full run) | Test, first 94 (interim) | Development (64) |
+|---|---|---|---|
+| One camera: fires found | **76.9%** | 78.7% | 79.4% |
+| One camera: false alarms per camera-day | **154.2** | 151.6 | 150.3 |
+| One camera: median alert after the human mark | **+240 s** | +210 s | +438 s |
+| Two cameras agreeing: fires found | **29.9%** | 28.6% | 42.4% |
+| Two cameras agreeing: false alarms per camera-day | **19.6** | 18.4 | 21.7 |
+| Triangulation: median spread between pair fixes | **6.3 km** | 3.8 km | 7.4 km |
+
+The film quotes the 94-sequence interim numbers ("94 of 130"), recorded before the
+full run finished. 33 individual test frames timed out during download and are
+missing; the full run scored the 10,107 frames that arrived.
+
+- The per-camera calibration made no measurable difference on test: 154.2 false
+  alarms a camera-day on all 130, with or without it.
+- Two-camera detection fell from 42.4% on dev to 29.9% on test.
 - It never alerted ahead of the human mark.
-- Triangulation on real data lands kilometres apart: pair fixes a median 3.8 km
+- Triangulation on real data lands kilometres apart: pair fixes a median 6.3 km
   apart on test. On synthetic incidents where we placed the fire, the fix lands 13 m
   from the truth.
 - It is not deployable at these false-alarm rates.
