@@ -587,12 +587,38 @@ def check_memory(limit: int = MEMORY_LIMIT_BYTES) -> int:
     return rss
 
 
-VARIANTS: dict[str, tuple[bool, bool]] = {
-    "map": (True, False),
-    "ceiling": (False, True),
-    "map+ceiling": (True, True),
+VARIANTS: dict[str, tuple[bool, bool, float]] = {
+    "map": (True, False, 0.0),
+    "ceiling": (False, True, 0.0),
+    "map+ceiling": (True, True, 0.0),
 }
-"""The calibrations compared, as ``(use_nuisance, use_ceiling)``."""
+"""Round one, as ``(use_nuisance, use_ceiling, ceiling_slack)``."""
+
+VARIANTS_ROUND_2: dict[str, tuple[bool, bool, float]] = {
+    "map": (True, False, 0.0),
+    "map+ceiling-0.05": (True, True, 0.05),
+    "map+ceiling-0.10": (True, True, 0.10),
+    "map+ceiling-0.15": (True, True, 0.15),
+}
+"""Round two, declared after round one showed the ceiling cut two thirds of the
+false positives but lost 6 of 25 fires. One knob only, the slack below the
+camera's clear-day 95th percentile, chosen by the same selection rule. The
+winner is then frozen and measured once on sequences never used in either round."""
+
+SHIPPED_VARIANT = "map"
+SHIPPED_THRESHOLD = 0.45
+FREEZE_NOTE = (
+    "Frozen on the development set before the test set was downloaded or scored. "
+    "The declared two-fires rule chose 'map', but that rule compared variants at one "
+    "threshold, which flatters any rule that simply raises a camera's bar. Compared at "
+    "matched false-positive rates along the curve, 'ceiling' and 'map+ceiling' detect "
+    "the same or fewer fires than the uncalibrated detector at a higher threshold "
+    "(map+ceiling 81.0% at 340.9 FP/camera-day at 0.35, against uncalibrated 85.7% at "
+    "293.0 at 0.40), and their six extra misses never fire at any swept threshold. "
+    "'map' matches uncalibrated detection at every threshold with fewer false positives, "
+    "so it is the variant that moves the curve rather than moving along it. The "
+    "threshold 0.45 is the knee of the corroborated development curve."
+)
 
 SELECTION_RULE = (
     "Declared before the ablation was run: at the shipped 0.35 threshold, on the "
@@ -645,7 +671,8 @@ def evaluate_calibrated(
     limit: int | None = None,
     confirmer=None,
     progress=None,
-    variants: dict[str, tuple[bool, bool]] | None = None,
+    variants: dict[str, tuple[bool, bool, float]] | None = None,
+    score_only: set[str] | None = None,
 ) -> tuple[Evaluation, dict[str, Evaluation], dict[str, CalibrationSet]]:
     """Two passes: measure uncalibrated, then measure again with a holdout.
 
@@ -700,14 +727,15 @@ def evaluate_calibrated(
     variants = variants or VARIANTS
     results: dict[str, Evaluation] = {}
     sets: dict[str, CalibrationSet] = {}
-    for variant, (use_nuisance, use_ceiling) in variants.items():
+    for variant, (use_nuisance, use_ceiling, ceiling_slack) in variants.items():
         calibrations = CalibrationSet()
         after: list[SequenceResult] = []
         for index, (name, sequence, labelled) in enumerate(sequences()):
             camera_id = sequence.camera.camera_id
             others = [e for e in evidence if e.camera_id == camera_id and e.sequence != name]
             fitted = combine(
-                others, camera_id, use_nuisance=use_nuisance, use_ceiling=use_ceiling
+                others, camera_id, use_nuisance=use_nuisance, use_ceiling=use_ceiling,
+                ceiling_slack=ceiling_slack,
             )
             if fitted is not None:
                 calibrations.add(fitted)

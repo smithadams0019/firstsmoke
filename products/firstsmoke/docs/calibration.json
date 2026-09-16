@@ -14,6 +14,8 @@
       "sources": [
         "20160604_FIRE_rm-n-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.0833,
       "grid": [
@@ -801,6 +803,8 @@
         "20170519_FIRE_rm-w-mobo-c",
         "20190829_FIRE_rm-w-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.0219,
       "grid": [
@@ -1587,6 +1591,8 @@
       "sources": [
         "20170807_FIRE_bh-n-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.3056,
       "grid": [
@@ -2373,6 +2379,8 @@
       "sources": [
         "20170826_FIRE_tp-s-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.2775,
       "grid": [
@@ -3159,6 +3167,8 @@
       "sources": [
         "20190629_FIRE_hp-n-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.1798,
       "grid": [
@@ -3947,6 +3957,8 @@
         "20180522_FIRE_rm-e-mobo-c",
         "20180919_FIRE_rm-e-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.3073,
       "grid": [
@@ -4733,6 +4745,8 @@
       "sources": [
         "20171021_FIRE_pi-e-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.2744,
       "grid": [
@@ -5519,6 +5533,8 @@
       "sources": [
         "20180614_FIRE_hp-s-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 31,
       "peak_nuisance": 0.5672,
       "grid": [
@@ -6306,6 +6322,8 @@
         "20180727_FIRE_wc-n-mobo-c",
         "20191005_FIRE_wc-n-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 5,
       "peak_nuisance": 0.4727,
       "grid": [
@@ -7092,6 +7110,8 @@
       "sources": [
         "20190610_FIRE_bh-w-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.3086,
       "grid": [
@@ -7878,6 +7898,8 @@
       "sources": [
         "20190712_FIRE_om-e-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.1944,
       "grid": [
@@ -8664,6 +8686,8 @@
       "sources": [
         "20190913_FIRE_lp-n-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.2828,
       "grid": [
@@ -9450,6 +9474,8 @@
       "sources": [
         "20170901_FIRE_om-s-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.0528,
       "grid": [
@@ -10236,6 +10262,8 @@
       "sources": [
         "20171010_FIRE_hp-w-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.2895,
       "grid": [
@@ -11022,6 +11050,8 @@
       "sources": [
         "20200521_FIRE_om-n-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 19,
       "peak_nuisance": 0.4983,
       "grid": [
@@ -11808,6 +11838,8 @@
       "sources": [
         "20191005_FIRE_wc-e-mobo-c"
       ],
+      "use_nuisance": true,
+      "use_ceiling": false,
       "habitual_cells": 0,
       "peak_nuisance": 0.1878,
       "grid": [

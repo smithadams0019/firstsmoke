@@ -92,6 +92,11 @@ class CameraCalibration:
     holdout can be checked rather than taken on trust."""
     use_nuisance: bool = True
     use_ceiling: bool = True
+    ceiling_slack: float = 0.0
+    """How far below this camera's clear-day 95th percentile a score may sit
+    and still be rejected by the ceiling. Zero rejects anything at or below the
+    95th percentile; 0.10 only rejects scores more than a tenth below it, letting
+    a borderline real detection through on a noisy camera."""
     """The two rules can be switched separately, because the evaluation measured
     them separately: the map is what catches a persistent feature, the ceiling is
     a per-camera raised threshold, and they cost detections very differently."""
@@ -125,6 +130,7 @@ class CameraCalibration:
             "sources": list(self.sources),
             "use_nuisance": self.use_nuisance,
             "use_ceiling": self.use_ceiling,
+            "ceiling_slack": self.ceiling_slack,
             "habitual_cells": int((self.nuisance >= HABITUAL_AT).sum()),
             "peak_nuisance": round(float(self.nuisance.max()), 4),
             "grid": [round(float(v), 4) for v in self.nuisance.ravel()],
@@ -144,6 +150,7 @@ class CameraCalibration:
             sources=list(data.get("sources", [])),
             use_nuisance=bool(data.get("use_nuisance", True)),
             use_ceiling=bool(data.get("use_ceiling", True)),
+            ceiling_slack=float(data.get("ceiling_slack", 0.0)),
         )
 
 
@@ -206,6 +213,7 @@ def combine(
     *,
     use_nuisance: bool = True,
     use_ceiling: bool = True,
+    ceiling_slack: float = 0.0,
 ) -> CameraCalibration | None:
     """Build one camera's calibration by pooling the evidence handed in.
 
@@ -234,6 +242,7 @@ def combine(
         sources=sorted(e.sequence for e in mine),
         use_nuisance=use_nuisance,
         use_ceiling=use_ceiling,
+        ceiling_slack=ceiling_slack,
     )
 
 

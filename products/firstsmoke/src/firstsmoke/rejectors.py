@@ -379,7 +379,7 @@ def reject_habitual(
             confidence=float(min(0.92, 0.45 + 0.6 * (habituation - HABITUAL_REJECT_AT))),
         )
 
-    ceiling = calibration.clear_p95 * BASELINE_MARGIN
+    ceiling = calibration.clear_p95 * BASELINE_MARGIN - calibration.ceiling_slack
     if calibration.use_ceiling and confidence <= ceiling and ceiling > 0.0:
         return Rejection(
             "BELOW_CAMERA_BASELINE",

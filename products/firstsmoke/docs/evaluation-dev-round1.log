@@ -1,0 +1,519 @@
+confirmer: smoke-confirm-v1.onnx
+[ 1/64] hit   +900s  fp  5  peak 0.51  20160604_FIRE_rm-n-mobo-c (uncalibrated)
+[ 2/64] hit     +0s  fp 27  peak 0.65  20160604_FIRE_smer-tcs3-mobo-c (uncalibrated)
+[ 3/64] hit   +900s  fp 10  peak 0.58  20170519_FIRE_rm-w-mobo-c (uncalibrated)
+[ 4/64] hit   +300s  fp  2  peak 0.48  20170609_FIRE_sm-n-mobo-c (uncalibrated)
+[ 5/64] hit   +120s  fp  0  peak 0.38  20170807_FIRE_bh-n-mobo-c (uncalibrated)
+[ 6/64] hit     +0s  fp  4  peak 0.59  20170821_FIRE_lo-s-mobo-c (uncalibrated)
+[ 7/64] hit   +360s  fp  9  peak 0.49  20170826_FIRE_tp-s-mobo-c (uncalibrated)
+[ 8/64] hit     +0s  fp  5  peak 0.48  20170901_FIRE_om-s-mobo-c (uncalibrated)
+[ 9/64] MISS    -    fp  0  peak 0.33  20171010_FIRE_hp-n-mobo-c (uncalibrated)
+[10/64] hit     +0s  fp 22  peak 0.67  20171010_FIRE_hp-w-mobo-c (uncalibrated)
+[11/64] hit   +900s  fp 10  peak 0.59  20171010_FIRE_rm-e-mobo-c (uncalibrated)
+[12/64] hit     +0s  fp 14  peak 0.59  20171016_FIRE_sdsc-e-mobo-c (uncalibrated)
+[13/64] hit     +0s  fp 21  peak 0.57  20171021_FIRE_pi-e-mobo-c (uncalibrated)
+[14/64] hit     +0s  fp 29  peak 0.53  20180517_FIRE_rm-n-mobo-c (uncalibrated)
+[15/64] hit   +660s  fp  1  peak 0.60  20180522_FIRE_rm-e-mobo-c (uncalibrated)
+[16/64] hit     +0s  fp 32  peak 0.58  20180614_FIRE_hp-s-mobo-c (uncalibrated)
+[17/64] hit     +0s  fp 17  peak 0.63  20180718_FIRE_syp-w-mobo-c (uncalibrated)
+[18/64] hit     +0s  fp 31  peak 0.59  20180723_FIRE_tp-e-mobo-c (uncalibrated)
+[19/64] hit     +0s  fp 16  peak 0.56  20180727_FIRE_bh-n-mobo-c (uncalibrated)
+[20/64] hit     +0s  fp  9  peak 0.63  20180727_FIRE_bh-s-mobo-c (uncalibrated)
+[21/64] hit     +0s  fp 10  peak 0.63  20180727_FIRE_bl-e-mobo-c (uncalibrated)
+[22/64] hit    +60s  fp 10  peak 0.56  20180727_FIRE_mg-w-mobo-c (uncalibrated)
+[23/64] hit   +360s  fp 24  peak 0.63  20180727_FIRE_wc-n-mobo-c (uncalibrated)
+[24/64] hit   +180s  fp 17  peak 0.49  20180806_FIRE_mg-s-mobo-c (uncalibrated)
+[25/64] hit     +0s  fp 28  peak 0.54  20180806_FIRE_vo-w-mobo-c (uncalibrated)
+[26/64] hit  +1320s  fp  0  peak 0.37  20180919_FIRE_rm-e-mobo-c (uncalibrated)
+[27/64] hit    +60s  fp 25  peak 0.66  20190610_FIRE_bh-w-mobo-c (uncalibrated)
+[28/64] hit   +540s  fp  8  peak 0.57  20190629_FIRE_hp-n-mobo-c (uncalibrated)
+[29/64] hit     +0s  fp 21  peak 0.48  20190712_FIRE_om-e-mobo-c (uncalibrated)
+[30/64] MISS    -    fp  0  peak 0.28  20190717_FIRE_lp-n-mobo-c (uncalibrated)
+[31/64] hit   +420s  fp  8  peak 0.62  20190717_FIRE_pi-w-mobo-c (uncalibrated)
+[32/64] MISS    -    fp  0  peak 0.30  20190805_FIRE_sp-e-mobo-c (uncalibrated)
+[33/64] hit   +180s  fp 19  peak 0.55  20190813_FIRE_69bravo-e-mobo-c (uncalibrated)
+[34/64] hit     +0s  fp 30  peak 0.58  20190825_FIRE_sm-w-mobo-c (uncalibrated)
+[35/64] hit     +0s  fp 25  peak 0.63  20190829_FIRE_bl-n-mobo-c (uncalibrated)
+[36/64] hit  +1621s  fp  4  peak 0.45  20190829_FIRE_pi-e-mobo-c (uncalibrated)
+[37/64] hit     +0s  fp  3  peak 0.49  20190829_FIRE_rm-w-mobo-c (uncalibrated)
+[38/64] hit     +0s  fp 15  peak 0.53  20190829_FIRE_smer-tcs8-mobo-c (uncalibrated)
+[39/64] hit     +0s  fp 22  peak 0.55  20190913_FIRE_lp-n-mobo-c (uncalibrated)
+[40/64] hit   +842s  fp  9  peak 0.66  20190922_FIRE_ml-w-mobo-c (uncalibrated)
+[41/64] hit     +0s  fp 20  peak 0.52  20191001_FIRE_bh-w-mobo-c (uncalibrated)
+[42/64] hit   +419s  fp 22  peak 0.46  20191001_FIRE_lp-s-mobo-c (uncalibrated)
+[43/64] hit     +0s  fp 16  peak 0.58  20191001_FIRE_om-e-mobo-c (uncalibrated)
+[44/64] hit     +0s  fp  6  peak 0.57  20191001_FIRE_om-s-mobo-c (uncalibrated)
+[45/64] hit     +0s  fp  9  peak 0.51  20191001_FIRE_rm-w-mobo-c (uncalibrated)
+[46/64] MISS    -    fp  0  peak 0.20  20191005_FIRE_bm-e-mobo-c (uncalibrated)
+[47/64] hit   +240s  fp 12  peak 0.57  20191005_FIRE_hp-s-mobo-c (uncalibrated)
+[48/64] hit   +121s  fp 16  peak 0.50  20191005_FIRE_vo-n-mobo-c (uncalibrated)
+[49/64] hit     +0s  fp 14  peak 0.53  20191005_FIRE_wc-e-mobo-c (uncalibrated)
+[50/64] hit     +0s  fp 34  peak 0.63  20191005_FIRE_wc-n-mobo-c (uncalibrated)
+[51/64] MISS    -    fp  8  peak 0.53  20200202_FIRE_hp-w-mobo-c (uncalibrated)
+[52/64] hit   +120s  fp 11  peak 0.52  20200226_FIRE_rm-e-mobo-c (uncalibrated)
+[53/64] hit     +0s  fp 25  peak 0.55  20200521_FIRE_om-n-mobo-c (uncalibrated)
+[54/64] hit   +240s  fp  4  peak 0.54  20200618_FIRE_om-w-mobo-c (uncalibrated)
+[55/64] hit    +60s  fp 14  peak 0.60  20200705_FIRE_bm-w-mobo-c (uncalibrated)
+[56/64] MISS    -    fp 30  peak 0.46  20200705_FIRE_wc-n-mobo-c (uncalibrated)
+[57/64] hit   +420s  fp  4  peak 0.51  20200911_FIRE_lp-e-mobo-c (uncalibrated)
+[58/64] hit   +720s  fp  8  peak 0.51  20200911_FIRE_mlo-s-mobo-c (uncalibrated)
+[59/64] hit   +180s  fp  5  peak 0.52  20200911_FIRE_pi-s-mobo-c (uncalibrated)
+[60/64] hit     +0s  fp 19  peak 0.48  20201013_FIRE_cp-s-mobo-c (uncalibrated)
+[61/64] hit   +300s  fp  8  peak 0.49  20210204_FIRE_tp-s-mobo-c (uncalibrated)
+[62/64] MISS    -    fp  0  peak 0.00  20210319_FIRE_om-n-mobo-c (uncalibrated)
+[63/64] hit  +1800s  fp  0  peak 0.55  20210711_FIRE_wc-e-mobo-c (uncalibrated)
+[64/64] hit    +60s  fp  3  peak 0.57  20240907_FIRE_ws-s-mobo-c (uncalibrated)
+[ 1/64] hit   +900s  fp  5  peak 0.51  20160604_FIRE_rm-n-mobo-c (map)
+[ 2/64] hit     +0s  fp 27  peak 0.65  20160604_FIRE_smer-tcs3-mobo-c (map)
+[ 3/64] hit   +900s  fp 10  peak 0.58  20170519_FIRE_rm-w-mobo-c (map)
+[ 4/64] hit   +300s  fp  2  peak 0.48  20170609_FIRE_sm-n-mobo-c (map)
+[ 5/64] hit   +120s  fp  0  peak 0.38  20170807_FIRE_bh-n-mobo-c (map)
+[ 6/64] hit     +0s  fp  4  peak 0.59  20170821_FIRE_lo-s-mobo-c (map)
+[ 7/64] hit   +360s  fp  9  peak 0.49  20170826_FIRE_tp-s-mobo-c (map)
+[ 8/64] hit     +0s  fp  5  peak 0.48  20170901_FIRE_om-s-mobo-c (map)
+[ 9/64] MISS    -    fp  0  peak 0.33  20171010_FIRE_hp-n-mobo-c (map)
+[10/64] hit     +0s  fp 22  peak 0.67  20171010_FIRE_hp-w-mobo-c (map)
+[11/64] hit   +900s  fp 10  peak 0.59  20171010_FIRE_rm-e-mobo-c (map)
+[12/64] hit     +0s  fp 14  peak 0.59  20171016_FIRE_sdsc-e-mobo-c (map)
+[13/64] hit     +0s  fp 21  peak 0.57  20171021_FIRE_pi-e-mobo-c (map)
+[14/64] hit     +0s  fp 29  peak 0.53  20180517_FIRE_rm-n-mobo-c (map)
+[15/64] hit   +660s  fp  1  peak 0.60  20180522_FIRE_rm-e-mobo-c (map)
+[16/64] hit     +0s  fp 32  peak 0.58  20180614_FIRE_hp-s-mobo-c (map)
+[17/64] hit     +0s  fp 17  peak 0.63  20180718_FIRE_syp-w-mobo-c (map)
+[18/64] hit     +0s  fp 31  peak 0.59  20180723_FIRE_tp-e-mobo-c (map)
+[19/64] hit     +0s  fp 16  peak 0.56  20180727_FIRE_bh-n-mobo-c (map)
+[20/64] hit     +0s  fp  9  peak 0.63  20180727_FIRE_bh-s-mobo-c (map)
+[21/64] hit     +0s  fp 10  peak 0.63  20180727_FIRE_bl-e-mobo-c (map)
+[22/64] hit    +60s  fp 10  peak 0.56  20180727_FIRE_mg-w-mobo-c (map)
+[23/64] hit   +360s  fp 21  peak 0.63  20180727_FIRE_wc-n-mobo-c (map)
+[24/64] hit   +180s  fp 17  peak 0.49  20180806_FIRE_mg-s-mobo-c (map)
+[25/64] hit     +0s  fp 28  peak 0.54  20180806_FIRE_vo-w-mobo-c (map)
+[26/64] hit  +1320s  fp  0  peak 0.37  20180919_FIRE_rm-e-mobo-c (map)
+[27/64] hit    +60s  fp 25  peak 0.66  20190610_FIRE_bh-w-mobo-c (map)
+[28/64] hit   +540s  fp  8  peak 0.57  20190629_FIRE_hp-n-mobo-c (map)
+[29/64] hit     +0s  fp 21  peak 0.48  20190712_FIRE_om-e-mobo-c (map)
+[30/64] MISS    -    fp  0  peak 0.28  20190717_FIRE_lp-n-mobo-c (map)
+[31/64] hit   +420s  fp  8  peak 0.62  20190717_FIRE_pi-w-mobo-c (map)
+[32/64] MISS    -    fp  0  peak 0.30  20190805_FIRE_sp-e-mobo-c (map)
+[33/64] hit   +180s  fp 19  peak 0.55  20190813_FIRE_69bravo-e-mobo-c (map)
+[34/64] hit     +0s  fp 30  peak 0.58  20190825_FIRE_sm-w-mobo-c (map)
+[35/64] hit     +0s  fp 25  peak 0.63  20190829_FIRE_bl-n-mobo-c (map)
+[36/64] hit  +1621s  fp  4  peak 0.45  20190829_FIRE_pi-e-mobo-c (map)
+[37/64] hit     +0s  fp  3  peak 0.49  20190829_FIRE_rm-w-mobo-c (map)
+[38/64] hit     +0s  fp 15  peak 0.53  20190829_FIRE_smer-tcs8-mobo-c (map)
+[39/64] hit     +0s  fp 22  peak 0.55  20190913_FIRE_lp-n-mobo-c (map)
+[40/64] hit   +842s  fp  9  peak 0.66  20190922_FIRE_ml-w-mobo-c (map)
+[41/64] hit     +0s  fp 20  peak 0.52  20191001_FIRE_bh-w-mobo-c (map)
+[42/64] hit   +419s  fp 22  peak 0.46  20191001_FIRE_lp-s-mobo-c (map)
+[43/64] hit     +0s  fp 16  peak 0.58  20191001_FIRE_om-e-mobo-c (map)
+[44/64] hit     +0s  fp  6  peak 0.57  20191001_FIRE_om-s-mobo-c (map)
+[45/64] hit     +0s  fp  9  peak 0.51  20191001_FIRE_rm-w-mobo-c (map)
+[46/64] MISS    -    fp  0  peak 0.20  20191005_FIRE_bm-e-mobo-c (map)
+[47/64] hit   +240s  fp 12  peak 0.57  20191005_FIRE_hp-s-mobo-c (map)
+[48/64] hit   +121s  fp 16  peak 0.50  20191005_FIRE_vo-n-mobo-c (map)
+[49/64] hit     +0s  fp 14  peak 0.53  20191005_FIRE_wc-e-mobo-c (map)
+[50/64] hit   +480s  fp  2  peak 0.53  20191005_FIRE_wc-n-mobo-c (map)
+[51/64] MISS    -    fp  8  peak 0.53  20200202_FIRE_hp-w-mobo-c (map)
+[52/64] hit   +120s  fp 11  peak 0.52  20200226_FIRE_rm-e-mobo-c (map)
+[53/64] hit     +0s  fp 25  peak 0.55  20200521_FIRE_om-n-mobo-c (map)
+[54/64] hit   +240s  fp  4  peak 0.54  20200618_FIRE_om-w-mobo-c (map)
+[55/64] hit    +60s  fp 14  peak 0.60  20200705_FIRE_bm-w-mobo-c (map)
+[56/64] MISS    -    fp 30  peak 0.46  20200705_FIRE_wc-n-mobo-c (map)
+[57/64] hit   +420s  fp  4  peak 0.51  20200911_FIRE_lp-e-mobo-c (map)
+[58/64] hit   +720s  fp  8  peak 0.51  20200911_FIRE_mlo-s-mobo-c (map)
+[59/64] hit   +180s  fp  5  peak 0.52  20200911_FIRE_pi-s-mobo-c (map)
+[60/64] hit     +0s  fp 19  peak 0.48  20201013_FIRE_cp-s-mobo-c (map)
+[61/64] hit   +300s  fp  8  peak 0.49  20210204_FIRE_tp-s-mobo-c (map)
+[62/64] MISS    -    fp  0  peak 0.00  20210319_FIRE_om-n-mobo-c (map)
+[63/64] hit  +1800s  fp  0  peak 0.55  20210711_FIRE_wc-e-mobo-c (map)
+[64/64] hit    +60s  fp  3  peak 0.57  20240907_FIRE_ws-s-mobo-c (map)
+[ 1/64] MISS    -    fp  0  peak 0.35  20160604_FIRE_rm-n-mobo-c (ceiling)
+[ 2/64] hit     +0s  fp 27  peak 0.65  20160604_FIRE_smer-tcs3-mobo-c (ceiling)
+[ 3/64] hit   +900s  fp  4  peak 0.58  20170519_FIRE_rm-w-mobo-c (ceiling)
+[ 4/64] hit   +300s  fp  2  peak 0.48  20170609_FIRE_sm-n-mobo-c (ceiling)
+[ 5/64] MISS    -    fp  0  peak 0.30  20170807_FIRE_bh-n-mobo-c (ceiling)
+[ 6/64] hit     +0s  fp  4  peak 0.59  20170821_FIRE_lo-s-mobo-c (ceiling)
+[ 7/64] hit   +960s  fp  3  peak 0.49  20170826_FIRE_tp-s-mobo-c (ceiling)
+[ 8/64] hit     +0s  fp  5  peak 0.48  20170901_FIRE_om-s-mobo-c (ceiling)
+[ 9/64] MISS    -    fp  0  peak 0.12  20171010_FIRE_hp-n-mobo-c (ceiling)
+[10/64] hit     +0s  fp 22  peak 0.67  20171010_FIRE_hp-w-mobo-c (ceiling)
+[11/64] hit   +900s  fp  9  peak 0.59  20171010_FIRE_rm-e-mobo-c (ceiling)
+[12/64] hit     +0s  fp 14  peak 0.59  20171016_FIRE_sdsc-e-mobo-c (ceiling)
+[13/64] hit     +0s  fp 20  peak 0.57  20171021_FIRE_pi-e-mobo-c (ceiling)
+[14/64] hit     +0s  fp 16  peak 0.53  20180517_FIRE_rm-n-mobo-c (ceiling)
+[15/64] hit   +900s  fp  0  peak 0.60  20180522_FIRE_rm-e-mobo-c (ceiling)
+[16/64] hit     +0s  fp 23  peak 0.58  20180614_FIRE_hp-s-mobo-c (ceiling)
+[17/64] hit     +0s  fp 17  peak 0.63  20180718_FIRE_syp-w-mobo-c (ceiling)
+[18/64] hit     +0s  fp 31  peak 0.59  20180723_FIRE_tp-e-mobo-c (ceiling)
+[19/64] hit     +0s  fp 16  peak 0.56  20180727_FIRE_bh-n-mobo-c (ceiling)
+[20/64] hit     +0s  fp  9  peak 0.63  20180727_FIRE_bh-s-mobo-c (ceiling)
+[21/64] hit     +0s  fp 10  peak 0.63  20180727_FIRE_bl-e-mobo-c (ceiling)
+[22/64] hit    +60s  fp 10  peak 0.56  20180727_FIRE_mg-w-mobo-c (ceiling)
+[23/64] hit  +1500s  fp  2  peak 0.63  20180727_FIRE_wc-n-mobo-c (ceiling)
+[24/64] hit   +180s  fp 17  peak 0.49  20180806_FIRE_mg-s-mobo-c (ceiling)
+[25/64] hit     +0s  fp 28  peak 0.54  20180806_FIRE_vo-w-mobo-c (ceiling)
+[26/64] MISS    -    fp  0  peak 0.33  20180919_FIRE_rm-e-mobo-c (ceiling)
+[27/64] hit   +660s  fp  2  peak 0.66  20190610_FIRE_bh-w-mobo-c (ceiling)
+[28/64] hit   +540s  fp  8  peak 0.57  20190629_FIRE_hp-n-mobo-c (ceiling)
+[29/64] hit  +2400s  fp  1  peak 0.38  20190712_FIRE_om-e-mobo-c (ceiling)
+[30/64] MISS    -    fp  0  peak 0.10  20190717_FIRE_lp-n-mobo-c (ceiling)
+[31/64] hit   +420s  fp  8  peak 0.62  20190717_FIRE_pi-w-mobo-c (ceiling)
+[32/64] MISS    -    fp  0  peak 0.30  20190805_FIRE_sp-e-mobo-c (ceiling)
+[33/64] hit   +180s  fp 19  peak 0.55  20190813_FIRE_69bravo-e-mobo-c (ceiling)
+[34/64] hit     +0s  fp 30  peak 0.58  20190825_FIRE_sm-w-mobo-c (ceiling)
+[35/64] hit     +0s  fp 25  peak 0.63  20190829_FIRE_bl-n-mobo-c (ceiling)
+[36/64] MISS    -    fp  0  peak 0.16  20190829_FIRE_pi-e-mobo-c (ceiling)
+[37/64] hit  +2160s  fp  2  peak 0.49  20190829_FIRE_rm-w-mobo-c (ceiling)
+[38/64] hit     +0s  fp 15  peak 0.53  20190829_FIRE_smer-tcs8-mobo-c (ceiling)
+[39/64] hit     +0s  fp 22  peak 0.55  20190913_FIRE_lp-n-mobo-c (ceiling)
+[40/64] hit   +842s  fp  9  peak 0.66  20190922_FIRE_ml-w-mobo-c (ceiling)
+[41/64] hit   +480s  fp  3  peak 0.52  20191001_FIRE_bh-w-mobo-c (ceiling)
+[42/64] hit   +419s  fp 22  peak 0.46  20191001_FIRE_lp-s-mobo-c (ceiling)
+[43/64] hit    +59s  fp  7  peak 0.58  20191001_FIRE_om-e-mobo-c (ceiling)
+[44/64] hit  +1080s  fp  2  peak 0.57  20191001_FIRE_om-s-mobo-c (ceiling)
+[45/64] hit   +300s  fp  0  peak 0.51  20191001_FIRE_rm-w-mobo-c (ceiling)
+[46/64] MISS    -    fp  0  peak 0.20  20191005_FIRE_bm-e-mobo-c (ceiling)
+[47/64] MISS    -    fp  1  peak 0.57  20191005_FIRE_hp-s-mobo-c (ceiling)
+[48/64] hit   +121s  fp 16  peak 0.50  20191005_FIRE_vo-n-mobo-c (ceiling)
+[49/64] hit     +0s  fp 14  peak 0.53  20191005_FIRE_wc-e-mobo-c (ceiling)
+[50/64] MISS    -    fp  8  peak 0.63  20191005_FIRE_wc-n-mobo-c (ceiling)
+[51/64] MISS    -    fp  0  peak 0.20  20200202_FIRE_hp-w-mobo-c (ceiling)
+[52/64] hit   +120s  fp  4  peak 0.52  20200226_FIRE_rm-e-mobo-c (ceiling)
+[53/64] hit     +0s  fp 25  peak 0.55  20200521_FIRE_om-n-mobo-c (ceiling)
+[54/64] hit   +240s  fp  4  peak 0.54  20200618_FIRE_om-w-mobo-c (ceiling)
+[55/64] hit    +60s  fp 14  peak 0.60  20200705_FIRE_bm-w-mobo-c (ceiling)
+[56/64] MISS    -    fp  0  peak 0.17  20200705_FIRE_wc-n-mobo-c (ceiling)
+[57/64] hit   +420s  fp  4  peak 0.51  20200911_FIRE_lp-e-mobo-c (ceiling)
+[58/64] hit   +720s  fp  8  peak 0.51  20200911_FIRE_mlo-s-mobo-c (ceiling)
+[59/64] hit   +180s  fp  5  peak 0.52  20200911_FIRE_pi-s-mobo-c (ceiling)
+[60/64] hit     +0s  fp 19  peak 0.48  20201013_FIRE_cp-s-mobo-c (ceiling)
+[61/64] hit   +840s  fp  3  peak 0.49  20210204_FIRE_tp-s-mobo-c (ceiling)
+[62/64] MISS    -    fp  0  peak 0.00  20210319_FIRE_om-n-mobo-c (ceiling)
+[63/64] hit  +1800s  fp  0  peak 0.55  20210711_FIRE_wc-e-mobo-c (ceiling)
+[64/64] hit    +60s  fp  3  peak 0.57  20240907_FIRE_ws-s-mobo-c (ceiling)
+[ 1/64] MISS    -    fp  0  peak 0.35  20160604_FIRE_rm-n-mobo-c (map+ceiling)
+[ 2/64] hit     +0s  fp 27  peak 0.65  20160604_FIRE_smer-tcs3-mobo-c (map+ceiling)
+[ 3/64] hit   +900s  fp  4  peak 0.58  20170519_FIRE_rm-w-mobo-c (map+ceiling)
+[ 4/64] hit   +300s  fp  2  peak 0.48  20170609_FIRE_sm-n-mobo-c (map+ceiling)
+[ 5/64] MISS    -    fp  0  peak 0.30  20170807_FIRE_bh-n-mobo-c (map+ceiling)
+[ 6/64] hit     +0s  fp  4  peak 0.59  20170821_FIRE_lo-s-mobo-c (map+ceiling)
+[ 7/64] hit   +960s  fp  3  peak 0.49  20170826_FIRE_tp-s-mobo-c (map+ceiling)
+[ 8/64] hit     +0s  fp  5  peak 0.48  20170901_FIRE_om-s-mobo-c (map+ceiling)
+[ 9/64] MISS    -    fp  0  peak 0.12  20171010_FIRE_hp-n-mobo-c (map+ceiling)
+[10/64] hit     +0s  fp 22  peak 0.67  20171010_FIRE_hp-w-mobo-c (map+ceiling)
+[11/64] hit   +900s  fp  9  peak 0.59  20171010_FIRE_rm-e-mobo-c (map+ceiling)
+[12/64] hit     +0s  fp 14  peak 0.59  20171016_FIRE_sdsc-e-mobo-c (map+ceiling)
+[13/64] hit     +0s  fp 20  peak 0.57  20171021_FIRE_pi-e-mobo-c (map+ceiling)
+[14/64] hit     +0s  fp 16  peak 0.53  20180517_FIRE_rm-n-mobo-c (map+ceiling)
+[15/64] hit   +900s  fp  0  peak 0.60  20180522_FIRE_rm-e-mobo-c (map+ceiling)
+[16/64] hit     +0s  fp 23  peak 0.58  20180614_FIRE_hp-s-mobo-c (map+ceiling)
+[17/64] hit     +0s  fp 17  peak 0.63  20180718_FIRE_syp-w-mobo-c (map+ceiling)
+[18/64] hit     +0s  fp 31  peak 0.59  20180723_FIRE_tp-e-mobo-c (map+ceiling)
+[19/64] hit     +0s  fp 16  peak 0.56  20180727_FIRE_bh-n-mobo-c (map+ceiling)
+[20/64] hit     +0s  fp  9  peak 0.63  20180727_FIRE_bh-s-mobo-c (map+ceiling)
+[21/64] hit     +0s  fp 10  peak 0.63  20180727_FIRE_bl-e-mobo-c (map+ceiling)
+[22/64] hit    +60s  fp 10  peak 0.56  20180727_FIRE_mg-w-mobo-c (map+ceiling)
+[23/64] hit  +1500s  fp  2  peak 0.63  20180727_FIRE_wc-n-mobo-c (map+ceiling)
+[24/64] hit   +180s  fp 17  peak 0.49  20180806_FIRE_mg-s-mobo-c (map+ceiling)
+[25/64] hit     +0s  fp 28  peak 0.54  20180806_FIRE_vo-w-mobo-c (map+ceiling)
+[26/64] MISS    -    fp  0  peak 0.33  20180919_FIRE_rm-e-mobo-c (map+ceiling)
+[27/64] hit   +660s  fp  2  peak 0.66  20190610_FIRE_bh-w-mobo-c (map+ceiling)
+[28/64] hit   +540s  fp  8  peak 0.57  20190629_FIRE_hp-n-mobo-c (map+ceiling)
+[29/64] hit  +2400s  fp  1  peak 0.38  20190712_FIRE_om-e-mobo-c (map+ceiling)
+[30/64] MISS    -    fp  0  peak 0.10  20190717_FIRE_lp-n-mobo-c (map+ceiling)
+[31/64] hit   +420s  fp  8  peak 0.62  20190717_FIRE_pi-w-mobo-c (map+ceiling)
+[32/64] MISS    -    fp  0  peak 0.30  20190805_FIRE_sp-e-mobo-c (map+ceiling)
+[33/64] hit   +180s  fp 19  peak 0.55  20190813_FIRE_69bravo-e-mobo-c (map+ceiling)
+[34/64] hit     +0s  fp 30  peak 0.58  20190825_FIRE_sm-w-mobo-c (map+ceiling)
+[35/64] hit     +0s  fp 25  peak 0.63  20190829_FIRE_bl-n-mobo-c (map+ceiling)
+[36/64] MISS    -    fp  0  peak 0.16  20190829_FIRE_pi-e-mobo-c (map+ceiling)
+[37/64] hit  +2160s  fp  2  peak 0.49  20190829_FIRE_rm-w-mobo-c (map+ceiling)
+[38/64] hit     +0s  fp 15  peak 0.53  20190829_FIRE_smer-tcs8-mobo-c (map+ceiling)
+[39/64] hit     +0s  fp 22  peak 0.55  20190913_FIRE_lp-n-mobo-c (map+ceiling)
+[40/64] hit   +842s  fp  9  peak 0.66  20190922_FIRE_ml-w-mobo-c (map+ceiling)
+[41/64] hit   +480s  fp  3  peak 0.52  20191001_FIRE_bh-w-mobo-c (map+ceiling)
+[42/64] hit   +419s  fp 22  peak 0.46  20191001_FIRE_lp-s-mobo-c (map+ceiling)
+[43/64] hit    +59s  fp  7  peak 0.58  20191001_FIRE_om-e-mobo-c (map+ceiling)
+[44/64] hit  +1080s  fp  2  peak 0.57  20191001_FIRE_om-s-mobo-c (map+ceiling)
+[45/64] hit   +300s  fp  0  peak 0.51  20191001_FIRE_rm-w-mobo-c (map+ceiling)
+[46/64] MISS    -    fp  0  peak 0.20  20191005_FIRE_bm-e-mobo-c (map+ceiling)
+[47/64] MISS    -    fp  1  peak 0.57  20191005_FIRE_hp-s-mobo-c (map+ceiling)
+[48/64] hit   +121s  fp 16  peak 0.50  20191005_FIRE_vo-n-mobo-c (map+ceiling)
+[49/64] hit     +0s  fp 14  peak 0.53  20191005_FIRE_wc-e-mobo-c (map+ceiling)
+[50/64] MISS    -    fp  0  peak 0.35  20191005_FIRE_wc-n-mobo-c (map+ceiling)
+[51/64] MISS    -    fp  0  peak 0.20  20200202_FIRE_hp-w-mobo-c (map+ceiling)
+[52/64] hit   +120s  fp  4  peak 0.52  20200226_FIRE_rm-e-mobo-c (map+ceiling)
+[53/64] hit     +0s  fp 25  peak 0.55  20200521_FIRE_om-n-mobo-c (map+ceiling)
+[54/64] hit   +240s  fp  4  peak 0.54  20200618_FIRE_om-w-mobo-c (map+ceiling)
+[55/64] hit    +60s  fp 14  peak 0.60  20200705_FIRE_bm-w-mobo-c (map+ceiling)
+[56/64] MISS    -    fp  0  peak 0.18  20200705_FIRE_wc-n-mobo-c (map+ceiling)
+[57/64] hit   +420s  fp  4  peak 0.51  20200911_FIRE_lp-e-mobo-c (map+ceiling)
+[58/64] hit   +720s  fp  8  peak 0.51  20200911_FIRE_mlo-s-mobo-c (map+ceiling)
+[59/64] hit   +180s  fp  5  peak 0.52  20200911_FIRE_pi-s-mobo-c (map+ceiling)
+[60/64] hit     +0s  fp 19  peak 0.48  20201013_FIRE_cp-s-mobo-c (map+ceiling)
+[61/64] hit   +840s  fp  2  peak 0.49  20210204_FIRE_tp-s-mobo-c (map+ceiling)
+[62/64] MISS    -    fp  0  peak 0.00  20210319_FIRE_om-n-mobo-c (map+ceiling)
+[63/64] hit  +1800s  fp  0  peak 0.55  20210711_FIRE_wc-e-mobo-c (map+ceiling)
+[64/64] hit    +60s  fp  3  peak 0.57  20240907_FIRE_ws-s-mobo-c (map+ceiling)
+
+64 sequences, 4 passes, in 2447 s
+
+Declared before the ablation was run: at the shipped 0.35 threshold, on the sequences with a held-out calibration, choose the variant with the fewest false positives per camera-day among those that lose no more than 2 of the fires the uncalibrated detector found on those same sequences.
+
+     variant  seqs  fires before  after  lost  fp/day before    after
+         map    30            25     25     0          456.6    412.7  <- chosen
+     ceiling    30            25     19     6          456.6    158.0  (loses too many)
+ map+ceiling    30            25     19     6          456.6    146.8  (loses too many)
+
+Operating curve, variant 'map', all 64 sequences:
+threshold  detection   median         fp  fp/cam-day
+     0.25      95.2%       0s       1462       854.9
+     0.30      93.7%       0s       1142       667.8
+     0.35      90.5%      60s        795       464.9
+     0.40      85.7%     180s        464       271.3
+     0.45      79.4%     438s        257       150.3
+     0.50      60.3%     750s        121        70.8
+     0.55      30.2%     780s         37        21.6
+     0.60      12.7%     870s          6         3.5
+     0.65       6.3%     960s          0         0.0
+
+What the second camera buys, on the dates where two summits saw the same fire:
+threshold              one camera            corroborated
+              detect   fp/cam-day     detect   fp/cam-day
+     0.25    97.0%        872.2    72.7%        449.2
+     0.30    93.9%        687.5    72.7%        296.4
+     0.35    87.9%        465.2    63.6%        157.3
+     0.40    84.9%        264.5    45.5%         71.8
+     0.45    75.8%        124.3    42.4%         21.7
+     0.50    60.6%         49.0     0.0%         12.5
+     0.55    21.2%         17.1     0.0%          4.6
+     0.60    12.1%          6.8     0.0%          0.0
+     0.65     6.1%          0.0     0.0%          0.0
+
+{
+  "sequences": 64,
+  "frames": 4959,
+  "threshold": 0.35,
+  "detection_rate": 0.8906,
+  "detected": 57,
+  "missed": 7,
+  "time_to_alert_s": {
+    "n": 57,
+    "median": 60,
+    "mean": 261.1,
+    "p10": 0,
+    "p90": 865,
+    "min": 0,
+    "max": 1800,
+    "before_the_human_mark": 0
+  },
+  "false_positives": {
+    "frames": 795,
+    "clear_frames": 2451,
+    "clear_camera_hours": 41.0,
+    "per_camera_day": 464.88
+  },
+  "unusable_frames": {
+    "night": 81,
+    "glare": 16
+  },
+  "rejections_fired": {
+    "TOO_BRIEF": 506,
+    "HABITUAL_REGION": 63,
+    "ERRATIC_BASE": 29,
+    "GROUND_DRIFT": 27,
+    "FLARE": 15,
+    "CLOUD_TRANSLATION": 10,
+    "AIRBORNE": 5,
+    "WEATHER_FRONT": 1
+  },
+  "ms_per_frame": {
+    "median": 137.3,
+    "max": 731.3
+  },
+  "cross_camera": {
+    "incidents": 8,
+    "with_a_fix": 2,
+    "median_pair_spread_m": 7407.6,
+    "detail": [
+      {
+        "date": "20160604",
+        "cameras": [
+          "rm-n-mobo-c",
+          "smer-tcs3-mobo-c"
+        ],
+        "bearings": {
+          "rm-n-mobo-c": 42.62,
+          "smer-tcs3-mobo-c": 32.85
+        },
+        "refused": {
+          "code": "BEHIND_CAMERA",
+          "message": "the crossing point is behind rm-n-mobo-c; these bearings never met in front of the lookouts"
+        }
+      },
+      {
+        "date": "20171010",
+        "cameras": [
+          "hp-w-mobo-c",
+          "rm-e-mobo-c"
+        ],
+        "bearings": {
+          "hp-w-mobo-c": 284.66,
+          "rm-e-mobo-c": 45.56
+        },
+        "fix": {
+          "lat": 33.431656,
+          "lon": -117.152665,
+          "rays": [
+            "hp-w-mobo-c",
+            "rm-e-mobo-c"
+          ],
+          "residual_m": 0.0,
+          "semi_major_m": 708.6,
+          "semi_minor_m": 62.3,
+          "crossing_angle_deg": 59.1,
+          "range_m": {
+            "hp-w-mobo-c": 30355.1,
+            "rm-e-mobo-c": 4910.7
+          }
+        }
+      },
+      {
+        "date": "20180727",
+        "cameras": [
+          "bh-n-mobo-c",
+          "bh-s-mobo-c",
+          "bl-e-mobo-c",
+          "mg-w-mobo-c",
+          "wc-n-mobo-c"
+        ],
+        "bearings": {
+          "bh-n-mobo-c": 337.71,
+          "bh-s-mobo-c": 136.54,
+          "bl-e-mobo-c": 74.3,
+          "mg-w-mobo-c": 254.07,
+          "wc-n-mobo-c": 325.55
+        },
+        "refused": {
+          "code": "BEHIND_CAMERA",
+          "message": "the crossing point is behind bh-n-mobo-c; these bearings never met in front of the lookouts"
+        },
+        "pairs": 2,
+        "spread_m": 6918.0
+      },
+      {
+        "date": "20180806",
+        "cameras": [
+          "mg-s-mobo-c",
+          "vo-w-mobo-c"
+        ],
+        "bearings": {
+          "mg-s-mobo-c": 149.95,
+          "vo-w-mobo-c": 281.05
+        },
+        "fix": {
+          "lat": 33.158195,
+          "lon": -116.739395,
+          "rays": [
+            "mg-s-mobo-c",
+            "vo-w-mobo-c"
+          ],
+          "residual_m": 0.0,
+          "semi_major_m": 142.5,
+          "semi_minor_m": 107.1,
+          "crossing_angle_deg": 48.9,
+          "range_m": {
+            "mg-s-mobo-c": 3944.2,
+            "vo-w-mobo-c": 11605.7
+          }
+        }
+      },
+      {
+        "date": "20190829",
+        "cameras": [
+          "bl-n-mobo-c",
+          "pi-e-mobo-c",
+          "rm-w-mobo-c",
+          "smer-tcs8-mobo-c"
+        ],
+        "bearings": {
+          "bl-n-mobo-c": 43.01,
+          "pi-e-mobo-c": 134.1,
+          "rm-w-mobo-c": 233.98,
+          "smer-tcs8-mobo-c": 249.5
+        },
+        "refused": {
+          "code": "BEHIND_CAMERA",
+          "message": "the crossing point is behind pi-e-mobo-c; these bearings never met in front of the lookouts"
+        }
+      },
+      {
+        "date": "20191001",
+        "cameras": [
+          "bh-w-mobo-c",
+          "lp-s-mobo-c",
+          "om-e-mobo-c",
+          "om-s-mobo-c",
+          "rm-w-mobo-c"
+        ],
+        "bearings": {
+          "bh-w-mobo-c": 305.01,
+          "lp-s-mobo-c": 153.33,
+          "om-e-mobo-c": 48.16,
+          "om-s-mobo-c": 164.41,
+          "rm-w-mobo-c": 270.61
+        },
+        "refused": {
+          "code": "BEHIND_CAMERA",
+          "message": "the crossing point is behind bh-w-mobo-c; these bearings never met in front of the lookouts"
+        }
+      },
+      {
+        "date": "20191005",
+        "cameras": [
+          "hp-s-mobo-c",
+          "vo-n-mobo-c",
+          "wc-e-mobo-c",
+          "wc-n-mobo-c"
+        ],
+        "bearings": {
+          "hp-s-mobo-c": 138.85,
+          "vo-n-mobo-c": 41.52,
+          "wc-e-mobo-c": 105.33,
+          "wc-n-mobo-c": 40.61
+        },
+        "refused": {
+          "code": "RAYS_TOO_PARALLEL",
+          "message": "the bearings cross at 0.9 degrees; below 8 the fix slides along the line of sight"
+        },
+        "pairs": 2,
+        "spread_m": 7897.1
+      },
+      {
+        "date": "20200911",
+        "cameras": [
+          "lp-e-mobo-c",
+          "mlo-s-mobo-c",
+          "pi-s-mobo-c"
+        ],
+        "bearings": {
+          "lp-e-mobo-c": 106.33,
+          "mlo-s-mobo-c": 159.22,
+          "pi-s-mobo-c": 143.84
+        },
+        "refused": {
+          "code": "BEYOND_RANGE",
+          "message": "the crossing point is 40.7 km from lp-e-mobo-c, past the 40 km this camera can usefully see"
+        }
+      }
+    ]
+  },
+  "notes": [
+    "Imagery: HPWREN, University of California San Diego (http://hpwren.ucsd.edu), CC BY-NC-ND 4.0. Frames are cached locally and are not redistributed with this repository.",
+    "Labels are the signed offsets in FIgLib's own filenames: the seconds between a frame and the moment a human first marked the plume as visible.",
+    "No field deployment trial exists for this system. These numbers are a replay against recorded imagery, not evidence of operational outcome.",
+    "Calibration variant 'map'. Each camera's calibration was fitted only from that camera's clear frames on OTHER dates, never from the sequence being scored. Cameras appearing once in the set receive no calibration."
+  ]
+}
+
+wrote /home/rogerkorantenng/dev/Hackathons/opencv26/products/firstsmoke/docs/evaluation.json

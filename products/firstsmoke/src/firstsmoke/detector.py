@@ -41,8 +41,16 @@ from .rejectors import Rejection, apply_all, blind_reason
 from .scene import Alignment, SceneState, assess_scene
 from .tracks import Growth, Track, Tracker
 
-SUSPECT_AT = 0.35
-"""Below this a camera stays on watch and says nothing."""
+SUSPECT_AT = 0.45
+"""Below this a camera stays on watch and says nothing.
+
+Chosen off the development curve, not set by hand. With per-camera calibration,
+requiring a second summit to corroborate, the development set gave 63.6%
+detection at 157 false positives per camera-day at 0.35, 45.5% at 71.8 at 0.40,
+42.4% at 21.7 at 0.45, and nothing at all at 0.50. 0.45 is the knee: from 0.40
+it removes 70% of the remaining false alarms for three points of detection, and
+one step further detection collapses. It was 0.35 before calibration, picked on
+synthetic data."""
 CONFIRM_AT = 0.68
 """At or above this one camera is willing to assert a column on its own. Between
 the two is the band the escalation loop exists to resolve."""
