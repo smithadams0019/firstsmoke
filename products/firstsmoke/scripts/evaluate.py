@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 
 from firstsmoke.confirm import load_confirmer
-from firstsmoke.evaluate import FIGLIB_CACHE, evaluate_cache
+from firstsmoke.evaluate import FIGLIB_CACHE, evaluate_calibrated
 
 OUT = Path(__file__).resolve().parents[1] / "docs" / "evaluation.json"
 
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     print("confirmer:", confirmer.path.name if confirmer else "not loaded, classical evidence only")
 
     started = time.perf_counter()
-    evaluation = evaluate_cache(
+    before, evaluation, calibrations = evaluate_calibrated(
         args.cache,
         threshold=args.threshold,
         stride=args.stride,
@@ -70,10 +70,35 @@ def main(argv: list[str] | None = None) -> int:
     elapsed = time.perf_counter() - started
 
     payload = evaluation.to_dict()
+    payload["uncalibrated"] = before.to_dict()
+    payload["calibration"] = calibrations.summary()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2))
+    calibrations.save(args.out.parent / "calibration.json")
 
-    print(f"\n{len(evaluation.results)} sequences in {elapsed:.0f} s\n")
+    print(f"\n{len(evaluation.results)} sequences, two passes, in {elapsed:.0f} s")
+
+    # The comparison the whole exercise exists to produce, restricted to the
+    # sequences a holdout calibration was actually available for, so the two
+    # columns describe the same fires.
+    pairs = [
+        (b, a) for b, a in zip(before.results, evaluation.results, strict=True) if a.calibrated
+    ]
+    if pairs:
+        b_fp = sum(b.false_positive_frames for b, _ in pairs)
+        a_fp = sum(a.false_positive_frames for _, a in pairs)
+        b_hit = sum(1 for b, _ in pairs if b.detected)
+        a_hit = sum(1 for _, a in pairs if a.detected)
+        b_min = sum(b.negative_minutes for b, _ in pairs)
+        print(
+            f"\nOn the {len(pairs)} sequences with a held-out calibration:\n"
+            f"  false positives  {b_fp:5d} -> {a_fp:5d} frames   "
+            f"({b_fp / (b_min / 1440.0):.1f} -> {a_fp / (b_min / 1440.0):.1f} per camera-day)\n"
+            f"  fires detected   {b_hit:5d} -> {a_hit:5d} of {len(pairs)}"
+        )
+        uncal = [a for a in evaluation.results if not a.calibrated]
+        print(f"  {len(uncal)} sequences had no other date to calibrate from and are unchanged")
+    print()
     print(f"{'threshold':>9}  {'detection':>9}  {'median':>7}  {'fp':>9}  {'fp/cam-day':>10}")
     for row in evaluation.operating_curve():
         at = row["median_time_to_alert_s"]

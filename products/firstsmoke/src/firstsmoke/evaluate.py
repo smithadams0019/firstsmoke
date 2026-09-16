@@ -50,6 +50,14 @@ from typing import Any
 import cv2
 import numpy as np
 
+from .calibration import (
+    CalibrationSet,
+    CameraCalibration,
+    ClearFrameEvidence,
+    combine,
+    downscale_mask,
+    empty_coverage,
+)
 from .cameras import Camera, Network, parse_sites_js
 from .detector import SUSPECT_AT, CameraWatch, Verdict
 from .frames import CameraFrame, Sequence_, prepare
@@ -163,6 +171,13 @@ class SequenceResult:
     """
     first_bearings: dict[str, float] = field(default_factory=dict)
     """The bearing at the first crossing of each swept threshold."""
+    evidence: ClearFrameEvidence | None = None
+    """What this sequence's clear frames contribute to its camera's calibration.
+
+    Never used to calibrate this sequence's own run. It is pooled with the
+    camera's *other* sequences to score a different date."""
+    calibrated: bool = False
+    calibration_sources: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -184,6 +199,8 @@ class SequenceResult:
             "ms_per_frame": round(self.ms_per_frame, 1),
             "bearing_deg": None if self.bearing_deg is None else round(self.bearing_deg, 2),
             "series": [[o, c, b] for o, c, b in self.series],
+            "calibrated": self.calibrated,
+            "calibration_sources": list(self.calibration_sources),
         }
 
 
@@ -193,9 +210,15 @@ def run_sequence(
     *,
     threshold: float = SUSPECT_AT,
     confirmer=None,
+    calibration: CameraCalibration | None = None,
 ) -> SequenceResult:
-    """Watch one recorded sequence and score it against its labels."""
-    watch = CameraWatch(sequence.camera, confirmer=confirmer)
+    """Watch one recorded sequence and score it against its labels.
+
+    ``calibration`` must have been fitted from this camera's frames on *other*
+    dates. The harness enforces that; nothing here checks it, so if you call
+    this directly, check it yourself.
+    """
+    watch = CameraWatch(sequence.camera, confirmer=confirmer, calibration=calibration)
     first_alert: int | None = None
     peak = 0.0
     peak_negative = 0.0
@@ -208,6 +231,9 @@ def run_sequence(
     bearing_sigma = None
     series: list[tuple[int, float, float]] = []
     first_bearings: dict[str, float] = {}
+    coverage = empty_coverage()
+    clear_confidences: list[float] = []
+    clear_frames_seen = 0
 
     for item in labelled:
         reading = watch.observe(item.frame)
@@ -228,6 +254,15 @@ def run_sequence(
 
         peak = max(peak, best.confidence)
         series.append((item.offset_s, round(best.confidence, 4), round(best.bearing_deg, 3)))
+
+        if not item.is_smoke:
+            # Everything a calibration is allowed to learn from, gathered here
+            # and nowhere else: the clear frames only, every candidate region on
+            # them, and the confidences they reached.
+            clear_frames_seen += 1
+            clear_confidences.append(round(best.confidence, 4))
+            for detection in reading.detections:
+                coverage += downscale_mask(detection.region.mask)
         if item.is_smoke:
             if best.confidence >= threshold and first_alert is None:
                 first_alert = item.offset_s
@@ -268,6 +303,15 @@ def run_sequence(
         bearing_sigma_deg=bearing_sigma,
         series=series,
         first_bearings=first_bearings,
+        evidence=ClearFrameEvidence(
+            camera_id=sequence.camera.camera_id,
+            sequence="",
+            frames=clear_frames_seen,
+            coverage=np.clip(coverage, 0.0, float(max(clear_frames_seen, 1))),
+            confidences=clear_confidences,
+        ),
+        calibrated=calibration is not None and calibration.trustworthy,
+        calibration_sources=list(calibration.sources) if calibration else [],
     )
 
 
@@ -501,6 +545,119 @@ class Evaluation:
             "corroboration_curve": self.corroboration_curve(default_network()),
             "sequences": [r.to_dict() for r in self.results],
         }
+
+
+def evaluate_calibrated(
+    cache: Path = FIGLIB_CACHE,
+    *,
+    threshold: float = SUSPECT_AT,
+    stride: int = 1,
+    limit: int | None = None,
+    confirmer=None,
+    progress=None,
+) -> tuple[Evaluation, Evaluation, CalibrationSet]:
+    """Two passes: measure uncalibrated, then measure again with a holdout.
+
+    Pass one runs every sequence with no calibration and, while doing so,
+    records what each sequence's *clear* frames say about its camera.
+
+    Pass two re-runs every sequence with a calibration pooled from that camera's
+    **other sequences** — different dates, different weather, and never the day
+    being scored. A camera that appears only once in the set gets no calibration
+    at all rather than one fitted on itself, and is reported as uncalibrated.
+
+    Returns ``(before, after, calibrations)``. Comparing the two on the same
+    sequences is the only comparison worth making, and the harness never lets
+    them diverge, because both come from the same loaded frames.
+    """
+    network = default_network()
+    directories = sorted(d for d in cache.glob("*_FIRE_*") if d.is_dir())
+    if limit:
+        directories = directories[:limit]
+
+    loaded: list[tuple[str, Sequence_, list[LabelledFrame]]] = []
+    for directory in directories:
+        item = load_figlib_sequence(directory, network, stride=stride)
+        if item is not None:
+            loaded.append((directory.name, item[0], item[1]))
+
+    # ---- pass one: no calibration, and gather the evidence -----------------
+    before: list[SequenceResult] = []
+    evidence: list[ClearFrameEvidence] = []
+    for index, (name, sequence, labelled) in enumerate(loaded):
+        result = run_sequence(sequence, labelled, threshold=threshold, confirmer=confirmer)
+        result.sequence = name
+        if result.evidence is not None:
+            result.evidence.sequence = name
+            evidence.append(result.evidence)
+        before.append(result)
+        if progress:
+            progress(index + 1, len(loaded), f"{name} (uncalibrated)", result)
+
+    # ---- fit, holding out the sequence each calibration will be used on -----
+    calibrations = CalibrationSet()
+    per_sequence: dict[str, CameraCalibration | None] = {}
+    for name, sequence, _labelled in loaded:
+        camera_id = sequence.camera.camera_id
+        others = [e for e in evidence if e.camera_id == camera_id and e.sequence != name]
+        fitted = combine(others, camera_id)
+        per_sequence[name] = fitted
+        if fitted is not None:
+            calibrations.add(fitted)
+
+    # ---- pass two: the same frames, with the held-out calibration ----------
+    after: list[SequenceResult] = []
+    for index, (name, sequence, labelled) in enumerate(loaded):
+        result = run_sequence(
+            sequence, labelled, threshold=threshold, confirmer=confirmer,
+            calibration=per_sequence[name],
+        )
+        result.sequence = name
+        after.append(result)
+        if progress:
+            progress(index + 1, len(loaded), f"{name} (calibrated)", result)
+
+    notes_before = [
+        *_notes(),
+        "This pass runs with no per-camera calibration. It is the baseline the "
+        "calibrated pass is compared against.",
+    ]
+    notes_after = [
+        *_notes(),
+        "Each camera's calibration was fitted only from that camera's clear frames on "
+        "OTHER dates, never from the sequence being scored. Cameras appearing once in "
+        "the set receive no calibration and are counted as uncalibrated.",
+    ]
+    by_date_before: dict[str, list[tuple[str, SequenceResult]]] = {}
+    by_date_after: dict[str, list[tuple[str, SequenceResult]]] = {}
+    for result in before:
+        by_date_before.setdefault(result.sequence.split("_")[0], []).append(
+            (result.sequence, result)
+        )
+    for result in after:
+        by_date_after.setdefault(result.sequence.split("_")[0], []).append(
+            (result.sequence, result)
+        )
+
+    return (
+        Evaluation(before, threshold, cross_camera_consistency(by_date_before, network),
+                   notes_before),
+        Evaluation(after, threshold, cross_camera_consistency(by_date_after, network),
+                   notes_after),
+        calibrations,
+    )
+
+
+def _notes() -> list[str]:
+    return [
+        "Imagery: HPWREN, University of California San Diego (http://hpwren.ucsd.edu), "
+        "CC BY-NC-ND 4.0. Frames are cached locally and are not redistributed with this "
+        "repository.",
+        "Labels are the signed offsets in FIgLib's own filenames: the seconds between a "
+        "frame and the moment a human first marked the plume as visible.",
+        "No field deployment trial exists for this system. These numbers are a replay "
+        "against recorded imagery, not evidence of operational outcome.",
+    ]
 
 
 def evaluate_cache(

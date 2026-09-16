@@ -85,6 +85,14 @@ SHAKE_UNCORRECTED_PX = 3.0
 RIDGE_BAND_PX = 14
 GLOBAL_TEXTURE_COLLAPSE = 0.55
 
+HABITUAL_REJECT_AT = 0.35
+"""A candidate sitting where this camera raises something on at least this
+fraction of its clear frames is habitual rather than new."""
+BASELINE_MARGIN = 1.0
+"""How far above a camera's own clear-frame 95th percentile a detection must sit
+before it counts as unusual for that camera. A multiplier of 1.0 means "beat
+what this camera reaches on a clear day"."""
+
 
 def reject_cloud(growth: Growth, region: Region, frame_height: int) -> Rejection | None:
     """Cloud translates bodily; a column does not.
@@ -329,6 +337,66 @@ def reject_weather_front(
     return None
 
 
+def reject_habitual(
+    region: Region, calibration, confidence: float
+) -> Rejection | None:
+    """This camera raises something here when nothing is happening.
+
+    The rule that the first evaluation asked for. On eight of forty-four cameras
+    the detector locked onto a persistent feature that satisfied every other
+    test, because the feature genuinely grows, stays anchored and veils the
+    hillside. What it does not do is be new: it was already there on frames
+    labelled clear, on other days.
+
+    Two separate conditions, because a camera can fail either way:
+
+    * the candidate sits on cells this camera habitually lights up, or
+    * the confidence does not exceed what this camera reaches on a clear day.
+
+    Both are measured from that camera's own clear frames on *other dates*, so
+    neither has seen the day being judged.
+    """
+    if calibration is None or not calibration.trustworthy:
+        return None
+
+    habituation = calibration.habituation(region.mask)
+    if habituation >= HABITUAL_REJECT_AT:
+        return Rejection(
+            "HABITUAL_REGION",
+            "something this camera always sees here",
+            f"this camera raises a candidate in this part of its view on "
+            f"{habituation * 100:.0f}% of its clear frames, learned from "
+            f"{calibration.clear_frames} frames on other days; whatever it is, it was "
+            "already there",
+            {
+                "habituation": habituation,
+                "threshold": HABITUAL_REJECT_AT,
+                "calibration_frames": calibration.clear_frames,
+                "calibrated_from": calibration.sources,
+            },
+            # Scales with how habitual the location is: a cell at 0.35 is
+            # suggestive, one at 0.9 is conclusive.
+            confidence=float(min(0.92, 0.45 + 0.6 * (habituation - HABITUAL_REJECT_AT))),
+        )
+
+    ceiling = calibration.clear_p95 * BASELINE_MARGIN
+    if confidence <= ceiling and ceiling > 0.0:
+        return Rejection(
+            "BELOW_CAMERA_BASELINE",
+            "an ordinary day on this camera",
+            f"scored {confidence:.2f}, and this camera reaches {calibration.clear_p95:.2f} on "
+            f"its clear frames; that is not unusual for this view",
+            {
+                "confidence": confidence,
+                "clear_p95": calibration.clear_p95,
+                "clear_median": calibration.clear_p50,
+                "calibration_frames": calibration.clear_frames,
+            },
+            confidence=0.7,
+        )
+    return None
+
+
 def reject_too_brief(growth: Growth, minimum_frames: int) -> Rejection | None:
     """One frame is not a column. Said out loud, because it is the whole thesis."""
     if growth.frames < minimum_frames:
@@ -354,11 +422,14 @@ def apply_all(
     *,
     minimum_frames: int = 3,
     baseline_contrast: float | None = None,
+    calibration=None,
+    confidence: float = 0.0,
 ) -> list[Rejection]:
     """Run every rule. Returns all that fired, strongest first."""
     height = frame.shape[0]
     found = [
         reject_too_brief(growth, minimum_frames),
+        reject_habitual(region, calibration, confidence),
         reject_flare(region, frame, scene),
         reject_lens_artefact(growth, region),
         reject_ridge_registration(region, alignment, height),

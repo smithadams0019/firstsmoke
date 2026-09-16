@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 
 from .background import BackgroundModel
+from .calibration import CameraCalibration
 from .cameras import Camera
 from .candidates import Region, extract_regions
 from .confirm import Confirmation, SmokeConfirmer
@@ -215,11 +216,13 @@ class CameraWatch:
         camera: Camera,
         *,
         confirmer: SmokeConfirmer | None = None,
+        calibration: CameraCalibration | None = None,
         minimum_frames: int = MINIMUM_FRAMES,
         suspect_at: float = SUSPECT_AT,
         confirm_at: float = CONFIRM_AT,
     ) -> None:
         self.camera = camera
+        self.calibration = calibration
         self.background = BackgroundModel(camera.camera_id)
         self.tracker = Tracker(camera.camera_id)
         self.confirmer = confirmer
@@ -369,10 +372,20 @@ class CameraWatch:
             track, growth, region, frame_image, scene, self.camera, alignment,
             minimum_frames=self.minimum_frames,
             baseline_contrast=self.baseline_contrast,
+            calibration=self.calibration,
+            # The habitual rule compares against the support this camera reaches
+            # on a clear day, so it needs the score before any rejector has
+            # touched it.
+            confidence=float(support),
         )
         confidence = support
         for rejection in rejections:
             confidence *= 1.0 - 0.9 * rejection.confidence
+
+        if self.calibration is not None and self.calibration.trustworthy:
+            region.metrics["habituation"] = round(
+                self.calibration.habituation(region.mask), 4
+            )
 
         bearing = bearing_from_pixel(
             region.cx, width, self.camera.azimuth_deg, self.camera.hfov_deg
