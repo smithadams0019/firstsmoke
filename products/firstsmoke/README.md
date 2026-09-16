@@ -213,7 +213,7 @@ src/firstsmoke/
 
 | | |
 |---|---|
-| This code | ours |
+| This code | MIT (see `LICENSE`) |
 | HPWREN imagery and camera metadata | CC BY-NC-ND 4.0, http://hpwren.ucsd.edu, not redistributed here |
 | `pyronear/pyro-sdis` (confirmer training data) | Apache-2.0 |
 | The trained confirmer | ours, trained only on Apache-2.0 data |
