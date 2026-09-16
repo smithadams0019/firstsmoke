@@ -45,12 +45,14 @@ uv pip install --python .venv/bin/python -e products/firstsmoke
 
 ## The honest summary
 
-On 64 recorded sequences from 44 real HPWREN cameras: **90.5% of fires found, a
-median of 60 seconds after the human who labelled them, and 487 false positives
-per camera-day.** The second number is far too high to deploy, and requiring a
-second camera to agree cuts it by 60% at the cost of 24 points of detection.
-On recorded data the bearing crossing is refused more often than it succeeds,
-and the system says so rather than guessing.
+On the held-out test set (94 of 130 FIgLib sequences scored so far, configuration
+frozen before download): **one camera finds 78.7% of fires at 151.6 false alarms per
+camera-day, a median of 210 s after the human who labelled them; with a second camera
+required, 28.6% at 18.4.** On the 64 development sequences where the threshold was
+chosen: 79.4% at 150 (+438 s), and 42.4% at 21.7 with two cameras. Calibration made
+no measurable difference on test (151.2 without, 151.6 with). It never alerted ahead
+of the human mark, triangulated fixes land a median 3.8 km apart, and it is not
+deployable at these false-alarm rates.
 
 There is no field deployment trial for this system, and we could not find a
 published outcome study for any comparable camera-based safety product in any

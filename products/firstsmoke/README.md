@@ -4,7 +4,8 @@ A lookout for mountain-top camera networks. It finds the first smoke column of a
 wildfire, asks the neighbouring cameras when it is unsure, and crosses their
 bearings on a map.
 
-**Live: https://afynmqkk9e.eu-west-1.awsapprunner.com**
+**Live: https://afynmqkk9e.eu-west-1.awsapprunner.com** (AWS App Runner, eu-west-1, image `fs-flags60`, commit `6efba0c`)
+**Repository: https://github.com/smithadams0019/firstsmoke**
 
 Built for the OpenCV AI Competition 2026. OpenCV 5.0.0, pinned.
 
@@ -39,15 +40,26 @@ blind camera's silence is never counted as evidence of an empty hillside.
 
 ## Honest summary of the results
 
-On 64 recorded sequences from 44 real HPWREN cameras, at the shipped operating
-point (a per-camera nuisance map, threshold 0.45): **with a second camera
-required to agree, 42% of fires at 21.7 false alarms per camera-day; on one
-camera, 79% at 150, a median of 7.3 minutes after the human who labelled them.**
-Before calibration it was 90.5% at 485. Neither is deployable. Those numbers
-come from the set the threshold was chosen on; a frozen 130-sequence test set is
-not yet scored. Triangulation on real data is not useful yet: refused on six of
-eight dates, and 7.4 km of spread where it crossed. On synthetic incidents where
-we placed the fire ourselves, the fix lands 13 m from the truth.
+On the held-out test set (94 of 130 FIgLib sequences scored so far, configuration
+frozen before download), at the shipped point: **one camera finds 78.7% of fires at
+151.6 false alarms per camera-day, a median of 210 s after the human who labelled
+them. With a second camera required to agree, it finds 28.6% at 18.4.** On the 64
+development sequences where the threshold was chosen, those figures were 79.4% at
+150 (+438 s) and 42.4% at 21.7.
+
+- The per-camera calibration made no measurable difference on test: 151.2 false
+  alarms a camera-day without it, 151.6 with it.
+- Two-camera detection fell from 42.4% on dev to 28.6% on test.
+- It never alerted ahead of the human mark.
+- Triangulation on real data lands kilometres apart: pair fixes a median 3.8 km
+  apart on test. On synthetic incidents where we placed the fire, the fix lands 13 m
+  from the truth.
+- It is not deployable at these false-alarm rates.
+
+On real footage through the upload page, a Waldo Canyon time-lapse raised 27 flags,
+9 of them on cloud before any smoke appeared, with the highest score on the smoke
+column. A Grand Canyon cloud time-lapse raised 5 false flags. A faint prescribed-burn
+wisp in North Derby Gulch was missed.
 
 Full numbers, failure cases and what they mean: **[docs/evaluation.md](docs/evaluation.md)**.
 

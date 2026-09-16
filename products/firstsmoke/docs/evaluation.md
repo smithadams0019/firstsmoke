@@ -1,24 +1,58 @@
 # Evaluation
 
-Every number below comes from `docs/evaluation-dev-round1.json`, written by
-`scripts/evaluate.py` and reproducible from a clean checkout. Nothing here is
-estimated and nothing is rounded in our favour.
+Every number below comes from a JSON file written by `scripts/evaluate.py`: the
+held-out test set from `docs/evaluation-test-94.json`, the development set from
+`docs/evaluation-dev-round1.json`. Nothing is estimated or rounded up.
 
-**The headline, stated before the detail: this system is still not deployable.**
-At the shipped operating point, with per-camera calibration and a second camera
-required to agree, it finds **42% of fires** at **21.7 false alarms per
-camera-day**. One camera alone finds **79%** at **150 a camera-day**, a median of
-**7.3 minutes** after a human annotator marked the smoke. Before calibration and
-the threshold change, one camera found 90.5% at 485 a camera-day, and with a
-second camera 63.6% at 199.5. We bought a nine-fold cut in corroborated false
-alarms with a third of the corroborated detections, and both numbers are still
-far from what a lookout service would switch on.
+**This system is not deployable at these false-alarm rates.**
 
-**What these numbers are not.** The threshold and the calibration variant were
-chosen on these same 64 sequences, so they are optimistic. A test set of 130
-FIgLib sequences that played no part in any choice was frozen before download
-(`data/figlib_test_sequences.txt`, frozen configuration committed as `62063f7`)
-and is **not yet scored**. When it is, it replaces the headline.
+## 0. The headline: the held-out test set
+
+The threshold (0.45) and the calibration variant (`map`) were chosen on 64
+development sequences and committed as `62063f7` before any test sequence was
+downloaded. The test set is 130 FIgLib sequences frozen in
+`data/figlib_test_sequences.txt`. **94 of the 130 are scored so far.** A full
+130-sequence run is in progress, and these figures will be replaced when it
+finishes.
+
+| At the shipped point (0.45, map calibration) | Test set, held out (94 sequences) | Development set, where the threshold was chosen (64) |
+|---|---|---|
+| One camera: fires found | **78.7%** (74 of 94) | 79.4% (50 of 63) |
+| One camera: false positives per camera-day | **151.6** | 150.3 |
+| One camera: median time to alert, after the human mark | **+210 s** | +438 s |
+| Two cameras agreeing: fires found | **28.6%** (14 of 49) | 42.4% (of 33) |
+| Two cameras agreeing: false positives per camera-day | **18.4** | 21.7 |
+| Alerts ahead of the human mark | **0** | 0 |
+| Triangulation: fixes / multi-summit dates | **4 of 13** | 2 of 8 |
+| Triangulation: median spread between pair fixes | **3.8 km** | 7.4 km |
+| Median processing time | 174.8 ms a frame | 137 ms a frame |
+
+What the test set says, plainly:
+
+- **One camera held up; two cameras did not.** One-camera detection and false
+  alarms barely moved from dev to test. Two-camera detection fell from 42.4% on
+  dev to 28.6% on test. The threshold was picked at the knee of the dev
+  two-camera curve, and that knee did not carry over.
+- **Calibration made no measurable difference on test.** Without calibration the
+  one-camera rate is 151.2 false positives per camera-day; with the `map`
+  calibration it is 151.6. The same 74 fires are found either way. 78 of the 94
+  sequences had a calibration available. The small gain on dev (171.3 to 150.3 at
+  0.45) did not reproduce.
+- **It never alerted ahead of the human mark,** on any of the 74 fires it found.
+  The test mean is +467 s; the 90th percentile is +1,320 s.
+- **Triangulation lands kilometres apart.** Where two independent camera pairs
+  could both be crossed, their fixes were a median 3.8 km apart. Nine of the 13
+  multi-summit dates were refused (6 with rays too parallel, 2 beyond range, 1
+  behind the camera).
+- **It is not deployable.** 151.6 false alarms a camera-day on one camera, or
+  28.6% of fires found with a second camera, is far from anything a lookout
+  service would switch on.
+
+The processing time on test ran on a busier machine than dev; the uncalibrated
+test pass on the same frames measured 104.2 ms a frame.
+
+Everything from section 2 on is the **development set**, where the choices were
+made. It is kept because it records how the shipped configuration was chosen.
 
 ## 1. The data
 
@@ -37,7 +71,7 @@ first marked the plume as visible.
 | Clear camera time | 41.0 hours |
 | Cadence | one frame a minute |
 | Working resolution | 1024 px wide, downscaled from 3072 x 2048 |
-| Held-out test sequences | 130, frozen, not yet scored |
+| Held-out test sequences | 130, frozen; 94 scored (7,272 frames) |
 
 The negatives are the right negatives: the same cameras, the same weather, the
 same hours of the same days, taken from the forty minutes immediately before
@@ -47,7 +81,7 @@ Imagery is HPWREN, University of California San Diego, http://hpwren.ucsd.edu,
 licensed CC BY-NC-ND 4.0. Frames are cached locally by whoever runs the
 evaluation and are not redistributed with this repository.
 
-## 2. Before and after
+## 2. Before and after, development set
 
 | | Before: 0.35, no calibration | After: 0.45, map calibration |
 |---|---|---|
@@ -187,7 +221,7 @@ The calibration variant and the threshold were then written into the code
 (`SHIPPED_VARIANT`, `SHIPPED_THRESHOLD`, `SUSPECT_AT`) and committed as
 `62063f7`, before a single test sequence had been downloaded.
 
-## 4. What "+438 seconds" means, and what it does not
+## 4. What "+210 seconds" (test) and "+438 seconds" (development) mean
 
 **The comparison is against a hindsight annotator, not a live watcher.** FIgLib's
 offset zero is the first frame in which an expert, reviewing the whole recorded
@@ -202,8 +236,9 @@ reports a mean time to detection of 3.12 minutes (Dewangan et al., *Remote
 Sensing* 14(4):1007, 2022, arXiv:2112.08598), a re-run of SmokeyNet 4.70 ± 0.90
 minutes and 3.66 with weather data (arXiv:2212.14143), and ContrastSwin 2.26
 minutes (arXiv:2311.10116). Those are means on their own splits and operating
-points, and ours is a median on ours, so the comparison is loose; but our median
-of 7.3 minutes at the shipped point is slower than all of them, and we say so.
+points, so the comparison is loose. Our own mean on the test set is 7.8 minutes
+(466.7 s), and on the development set the median alone is 7.3 minutes. Both are
+slower than every published figure above.
 
 **There is no sourced live comparator in minutes.** We looked for a published
 figure for how long after ignition a fire is first reported by a 911 call or by
@@ -212,7 +247,7 @@ says its cameras beat 911 calls "over 30% of the time" (alertcalifornia.org),
 which gives no minutes. We do not put a number on how much earlier or later this
 system would be than people in the field, because we cannot source one.
 
-## 5. Localisation on recorded data: not useful yet
+## 5. Localisation on recorded data: not useful yet (development set; test set in section 0)
 
 Plainly: **triangulation does not work on real data yet.** Of the 8 dates with
 two or more summits, the crossing succeeded on 2 and was refused on 6. Where two
@@ -308,7 +343,14 @@ two public clips, at the shipped threshold:
 | `waldo-canyon-clear-to-onset.mp4` (Steve Moraco, CC BY 3.0), 21.6 s a frame | clear sky, then a smoke column from about 0:20 | 240 of 1,200 frames read; 27 flags. Nine of them, 0:03 to 0:19, come before any smoke is in frame. The highest score, 0.75 at 0:43, is on the smoke column |
 | `grand-canyon-clouds-timelapse.mp4` (NPS, CC BY 4.0), 1 s a frame assumed | cloud over the canyon, no smoke | 42 of 1,108 frames read; 5 flags, all false, highest 0.51 |
 
-Those are the deployed service's own results. A local run of the Waldo clip gave
+A third clip, `north-derby-gulch-rx-timelapse.mp4` (USDA Forest Service, public
+domain), shows a faint wisp of smoke on a far ridge during a prescribed burn.
+Firstsmoke missed it: its highest box (0.58) sat on a wind-blown bush in the
+foreground, and the wisp itself scored 0.37 to 0.43, under the 0.45 threshold
+(`media/real/firstsmoke/PROVENANCE.md` §3).
+
+The Waldo and Grand Canyon rows are the deployed service's own results, on image
+`fs-flags60` (commit `6efba0c`). A local run of the Waldo clip gave
 22 flags with the same peak, so small decoder or CPU differences move the weakest
 flags either side of 0.45.
 
@@ -326,15 +368,15 @@ and it does find a real column eventually.
   localisation accuracy on recorded data cannot be measured against a surveyed
   point at all. §5 reports a self-consistency spread and a synthetic accuracy,
   and calls neither one accuracy on real data.
-- **63 fires is a small set**, drawn from one network in one region, and 44
+- **63 development fires and 94 test fires is a small set**, drawn from one network in one region, and 44
   cameras is not enough to characterise per-camera behaviour when the false
   positives are concentrated in eight of them.
 - **Every sequence contains a fire.** FIgLib has no all-clear days, so the clear
   period is only forty minutes per camera and always immediately precedes an
   ignition. A true false-positive rate needs quiet days, and we do not have them.
-- **The shipped threshold and calibration were chosen on the development set**,
-  and every number above is on that set. The 130-sequence test set is frozen and
-  not yet scored.
+- **The shipped threshold and calibration were chosen on the development set.**
+  Sections 2 to 8 are on that set. Section 0 is on 94 of the 130 held-out test
+  sequences; the remaining 36 are being scored.
 - **Only 16 of 44 cameras had a second date** to learn a calibration from, so the
   calibration's effect is measured on 30 sequences.
 
