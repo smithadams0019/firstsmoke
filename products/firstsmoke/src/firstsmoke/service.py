@@ -96,10 +96,13 @@ def _threshold(value: Any) -> float:
     return min(max(number, 0.1), CONFIRM_AT - 0.01)
 
 
-UPLOAD_MAX_FLAGS = 24
+UPLOAD_MAX_FLAGS = 60
 """Uploaded footage keeps watching after a flag. This bounds how many it raises,
-so a clip full of cloud cannot produce an unreadable list; reaching it stops the
-watch and the result says so."""
+so a clip full of cloud cannot run away; reaching it stops the watch and the
+result says so. It was 24, and on the deployed service the Waldo clip hit 24
+flags on cloud at 0:42 and stopped two seconds before its highest-scoring frame,
+on the smoke column. One annotated JPEG per flag is cheap; stopping short of the
+smoke is not."""
 
 
 def _save_flag(lookout: Lookout, alert: dict[str, Any], ctx: JobContext, record: RunRecord) -> None:
