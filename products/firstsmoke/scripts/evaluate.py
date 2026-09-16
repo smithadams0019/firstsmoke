@@ -21,9 +21,14 @@ import time
 from pathlib import Path
 
 from firstsmoke.confirm import load_confirmer
+from firstsmoke.detector import SUSPECT_AT
 from firstsmoke.evaluate import (
     FIGLIB_CACHE,
+    FREEZE_NOTE,
     SELECTION_RULE,
+    SHIPPED_THRESHOLD,
+    SHIPPED_VARIANT,
+    VARIANTS,
     choose_variant,
     default_network,
     evaluate_calibrated,
@@ -47,7 +52,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="evaluate the detector on cached FIgLib sequences")
     parser.add_argument("--cache", type=Path, default=FIGLIB_CACHE)
     parser.add_argument("--out", type=Path, default=OUT)
-    parser.add_argument("--threshold", type=float, default=0.35)
+    parser.add_argument("--threshold", type=float, default=None)
+    parser.add_argument(
+        "--test", type=Path, default=None,
+        help="file of sequence names to score once with the frozen configuration; "
+        "every other cached sequence contributes calibration evidence only",
+    )
     parser.add_argument("--stride", type=int, default=1, help="use every Nth frame")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--no-model", action="store_true", help="skip the ONNX confirmer")
@@ -64,10 +74,13 @@ def main(argv: list[str] | None = None) -> int:
     confirmer = None if args.no_model else load_confirmer()
     print("confirmer:", confirmer.path.name if confirmer else "not loaded, classical evidence only")
 
+    if args.test is not None:
+        return run_test(args, confirmer)
+
     started = time.perf_counter()
     before, variants, sets = evaluate_calibrated(
         args.cache,
-        threshold=args.threshold,
+        threshold=args.threshold if args.threshold is not None else SUSPECT_AT,
         stride=args.stride,
         limit=args.limit,
         confirmer=confirmer,
@@ -140,6 +153,72 @@ def main(argv: list[str] | None = None) -> int:
             )
     print("\n" + json.dumps(evaluation.summary(), indent=2))
     print(f"\nwrote {args.out}")
+    return 0
+
+
+def print_curves(before, after, label: str) -> None:
+    network = default_network()
+    print(f"\n{label}: single camera, detection and FP per camera-day")
+    print(f"{'thr':>5}  {'uncalibrated':>16}  {'calibrated':>16}")
+    for b, a in zip(before.operating_curve(), after.operating_curve(), strict=True):
+        mark = "  <- shipped" if abs(a["threshold"] - SHIPPED_THRESHOLD) < 1e-9 else ""
+        b_fp, a_fp = b["false_positives_per_camera_day"], a["false_positives_per_camera_day"]
+        print(
+            f"{a['threshold']:>5.2f}  {b['detection_rate'] * 100:>6.1f}% {b_fp:>8.1f}"
+            f"  {a['detection_rate'] * 100:>6.1f}% {a_fp:>8.1f}{mark}"
+        )
+    bc, ac = before.corroboration_curve(network), after.corroboration_curve(network)
+    if bc:
+        print(f"\n{label}: corroborated by a second summit")
+        for b, a in zip(bc, ac, strict=True):
+            mark = "  <- shipped" if abs(a["threshold"] - SHIPPED_THRESHOLD) < 1e-9 else ""
+            print(
+                f"{a['threshold']:>5.2f}  {b['corroborated']['detection_rate'] * 100:>6.1f}% "
+                f"{b['corroborated']['false_positives_per_camera_day']:>8.1f}  "
+                f"{a['corroborated']['detection_rate'] * 100:>6.1f}% "
+                f"{a['corroborated']['false_positives_per_camera_day']:>8.1f}{mark}"
+            )
+
+
+def run_test(args, confirmer) -> int:
+    """Score the held-out test sequences once, with the frozen configuration."""
+    names = {line.strip() for line in args.test.read_text().splitlines() if line.strip()}
+    cached = {d.name for d in args.cache.glob("*_FIRE_*") if d.is_dir()}
+    missing = sorted(names - cached)
+    if missing:
+        print(
+            f"{len(missing)} test sequences are not cached yet, e.g. {missing[:3]}",
+            file=sys.stderr,
+        )
+        return 2
+    started = time.perf_counter()
+    before, variants, _sets = evaluate_calibrated(
+        args.cache,
+        threshold=SHIPPED_THRESHOLD,
+        confirmer=confirmer,
+        progress=show,
+        variants={SHIPPED_VARIANT: VARIANTS[SHIPPED_VARIANT]},
+        score_only=names,
+    )
+    after = variants[SHIPPED_VARIANT]
+    network = default_network()
+    payload = after.to_dict()
+    payload["uncalibrated"] = before.to_dict()
+    payload["protocol"] = {
+        "role": "test",
+        "sequences_scored": len(after.results),
+        "shipped_variant": SHIPPED_VARIANT,
+        "shipped_threshold": SHIPPED_THRESHOLD,
+        "freeze_note": FREEZE_NOTE,
+        "calibration_sources": "each camera's clear frames on every other cached date, "
+        "development and test, never the date being scored",
+    }
+    payload["uncalibrated_corroboration_curve"] = before.corroboration_curve(network)
+    out = args.out.parent / "evaluation-test.json"
+    out.write_text(json.dumps(payload, indent=2))
+    print(f"\n{len(after.results)} test sequences in {time.perf_counter() - started:.0f} s")
+    print_curves(before, after, "TEST")
+    print(f"\nwrote {out}")
     return 0
 
 

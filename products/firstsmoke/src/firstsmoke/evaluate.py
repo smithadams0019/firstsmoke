@@ -701,14 +701,23 @@ def evaluate_calibrated(
     # only the per-camera grids and confidences gathered in pass one.
     names = [d.name for d in directories]
 
-    def sequences():
+    def sequences(keep=lambda _name: True):
         for directory in directories:
+            if not keep(directory.name):
+                continue
             item = load_figlib_sequence(directory, network, stride=stride)
             if item is not None:
                 yield directory.name, item[0], item[1]
             check_memory()
 
+    def scored(name: str) -> bool:
+        return score_only is None or name in score_only
+
     # ---- pass one: no calibration, and gather the evidence -----------------
+    # Evidence is gathered from every cached sequence, including ones that are
+    # not being scored: a development sequence's clear frames are a legitimate
+    # source of calibration for the same camera on a test date. Only the
+    # sequences in ``score_only`` are reported.
     before: list[SequenceResult] = []
     evidence: list[ClearFrameEvidence] = []
     for index, (name, sequence, labelled) in enumerate(sequences()):
@@ -717,7 +726,8 @@ def evaluate_calibrated(
         if result.evidence is not None:
             result.evidence.sequence = name
             evidence.append(result.evidence)
-        before.append(result)
+        if scored(name):
+            before.append(result)
         if progress:
             progress(index + 1, len(names), f"{name} (uncalibrated)", result)
         del sequence, labelled
@@ -730,7 +740,7 @@ def evaluate_calibrated(
     for variant, (use_nuisance, use_ceiling, ceiling_slack) in variants.items():
         calibrations = CalibrationSet()
         after: list[SequenceResult] = []
-        for index, (name, sequence, labelled) in enumerate(sequences()):
+        for index, (name, sequence, labelled) in enumerate(sequences(scored)):
             camera_id = sequence.camera.camera_id
             others = [e for e in evidence if e.camera_id == camera_id and e.sequence != name]
             fitted = combine(
