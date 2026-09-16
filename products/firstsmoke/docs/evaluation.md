@@ -1,15 +1,23 @@
 # Evaluation
 
-Every number below comes from `docs/evaluation.json`, which is written by
-`scripts/evaluate.py` and can be regenerated from a clean checkout. Nothing here
-is estimated and nothing is rounded in our favour.
+Every number below comes from `docs/evaluation-dev-round1.json`, written by
+`scripts/evaluate.py` and reproducible from a clean checkout. Nothing here is
+estimated and nothing is rounded in our favour.
 
-**The headline, stated before the detail: this system is not deployable at the
-accuracy it currently achieves.** It finds nine fires in ten, a minute after a
-human would, and it also raises several hundred false alarms per camera per day
-on clear views. The second number is the one that decides whether anyone keeps a
-system switched on, and ours is far too high. The rest of this document is about
-exactly where that comes from and what does and does not help.
+**The headline, stated before the detail: this system is still not deployable.**
+At the shipped operating point, with per-camera calibration and a second camera
+required to agree, it finds **42% of fires** at **21.7 false alarms per
+camera-day**. One camera alone finds **79%** at **150 a camera-day**, a median of
+**7.3 minutes** after a human annotator marked the smoke. Before calibration and
+the threshold change, it was 90.5% at 487 a camera-day. We bought a 22-fold cut
+in corroborated false alarms with half the detections, and both numbers are
+still far from what a lookout service would switch on.
+
+**What these numbers are not.** The threshold and the calibration variant were
+chosen on these same 64 sequences, so they are optimistic. A test set of 130
+FIgLib sequences that played no part in any choice was frozen before download
+(`data/figlib_test_sequences.txt`, frozen configuration committed as `62063f7`)
+and is **not yet scored**. When it is, it replaces the headline.
 
 ## 1. The data
 
@@ -20,7 +28,7 @@ first marked the plume as visible.
 
 | | |
 |---|---|
-| Sequences | 64 |
+| Development sequences | 64 |
 | Frames | 4,959 |
 | Distinct cameras | 44 |
 | Frames labelled smoke | 2,508 |
@@ -28,135 +36,193 @@ first marked the plume as visible.
 | Clear camera time | 41.0 hours |
 | Cadence | one frame a minute |
 | Working resolution | 1024 px wide, downscaled from 3072 x 2048 |
+| Held-out test sequences | 130, frozen, not yet scored |
 
-The negatives matter as much as the positives and they are the right negatives:
-the same cameras, the same weather, the same hours of the same days, taken from
-the forty minutes immediately before each fire. A false-positive rate measured
-against stock photographs of empty hillsides would be meaningless, and it is the
-easiest number in this field to flatter.
+The negatives are the right negatives: the same cameras, the same weather, the
+same hours of the same days, taken from the forty minutes immediately before
+each fire.
 
 Imagery is HPWREN, University of California San Diego, http://hpwren.ucsd.edu,
 licensed CC BY-NC-ND 4.0. Frames are cached locally by whoever runs the
-evaluation and are not redistributed with this repository. `scripts/fetch_figlib.py`
-downloads them.
+evaluation and are not redistributed with this repository.
 
-## 2. Detection rate and time to alert
+## 2. Before and after
 
-At the shipped operating point, a per-camera confidence of 0.35:
+| | Before: 0.35, no calibration | After: 0.45, map calibration |
+|---|---|---|
+| One camera: fires detected | 57 of 63, **90.5%** | 50 of 63, **79.4%** |
+| One camera: false positives per camera-day | **485** | **150** |
+| One camera: median time to alert | +60 s | **+438 s** |
+| Corroborated (33 multi-summit sequences): detected | 63.6% | **42.4%** |
+| Corroborated: false positives per camera-day | 199.5 | **21.7** |
+| Detected before the human's mark | 0 | 0 |
+| Median processing time | 137 ms a frame | 137 ms a frame |
 
-| | |
-|---|---|
-| Fires with a usable view | 63 of 64 |
-| Fires detected | **57, or 90.5%** |
-| Median time to alert | **+60 s** after the human's mark |
-| Mean time to alert | +252 s |
-| 10th / 90th percentile | 0 s / +865 s |
-| Detected before the human's mark | **0 of 57** |
-| Median processing time | **128 ms a frame** (max 171 ms) |
+The 64th sequence, `20210319_FIRE_om-n-mobo-c`, is dark for all 81 frames; the
+system reported it unusable on every frame, which is correct, and it is excluded
+from the denominator.
 
-The 64th sequence is `20210319_FIRE_om-n-mobo-c`, which is dark for all 81 of its
-frames. The system reported it as unusable rather than clear on every frame,
-which is the correct behaviour, and it is excluded from the denominator rather
-than counted as a miss. Counting it as a miss would give 89.1%.
+## 3. How the shipped configuration was chosen, on the development set only
 
-**We never beat the human.** Not once in 57 detections. The annotator marked the
-first frame in which a person could see the plume, and the system needs three to
-four frames of growth before it will say anything, so a structural lag of two to
-four minutes is built into the design. That lag is the price of the growth
-analysis, and the growth analysis is what makes the impostor rejection work at
-all; but it should not be sold as early detection, because against this ground
-truth it is not.
+### 3.1 Per-camera calibration
 
-## 3. False positives, and the operating curve
+The false positives in the first evaluation were concentrated: on eight of 44
+cameras the highest score in the whole sequence sat on a frame labelled clear.
+That points at persistent features of particular views, not at noise, so the fix
+is learnt from each camera's own clear frames.
 
-Counted as frames labelled clear on which the detector crossed the threshold,
-divided by the clear camera time.
+For every camera, `calibration.py` keeps two things from frames labelled clear:
 
-| Threshold | Detection | Median alert | FP frames | **FP per camera-day** |
+- **a nuisance map**, a 24 by 32 grid of how often each cell was covered by a
+  candidate scoring 0.25 or more on a clear frame. A new candidate that sits
+  mostly on habitual cells (habituation 0.35 or more) is rejected as
+  `HABITUAL_REGION`, with a confidence that rises the more habitual it is;
+- **a confidence ceiling**, the 95th percentile of the camera's best score on
+  clear frames. A candidate at or below it is rejected as `BELOW_CAMERA_BASELINE`.
+
+A camera needs at least 25 clear frames before it is calibrated at all.
+
+**Which frames trained it.** A sequence is never scored with a calibration that
+saw it. Each camera's calibration is pooled from that camera's clear frames on
+*other dates only*, and a camera that appears on one date gets no calibration and
+is reported as uncalibrated. On the 64 development sequences that left 30
+sequences on 16 cameras with a held-out calibration, a median of 36 clear frames
+each.
+
+### 3.2 The ablation, and the rule we declared and then did not trust
+
+Three variants were run: the map alone, the ceiling alone, and both. Before
+running them we wrote down the selection rule: at the then-shipped threshold of
+0.35, on the 30 calibrated sequences, pick the variant with the fewest false
+positives per camera-day among those losing no more than two of the fires the
+uncalibrated detector found.
+
+| Variant | Sequences | Fires found before | After | Lost | FP/camera-day before | After |
+|---|---|---|---|---|---|---|
+| map | 30 | 25 | 25 | 0 | 456.6 | 412.7 |
+| ceiling | 30 | 25 | 19 | **6** | 456.6 | 158.0 |
+| map + ceiling | 30 | 25 | 19 | **6** | 456.6 | 146.8 |
+
+By the declared rule the map wins. But the rule compares variants at a single
+threshold, and that flatters anything that simply raises a camera's bar: a
+ceiling is a per-camera threshold increase, so of course it cuts false positives
+at a fixed global threshold. The fair question is whether a variant moves the
+detection-versus-false-positive curve, or only moves the operating point along
+it. So the choice was made on the curves, on all 64 sequences:
+
+| Threshold | Uncalibrated | map | ceiling | map + ceiling |
 |---|---|---|---|---|
-| 0.25 | 95.2% | 0 s | 1,467 | 857.8 |
-| 0.30 | 93.7% | 0 s | 1,171 | 684.7 |
-| **0.35** | **90.5%** | **+60 s** | **833** | **487.1** |
-| 0.40 | 85.7% | +180 s | 503 | 294.1 |
-| 0.45 | 79.4% | +330 s | 293 | 171.3 |
-| 0.50 | 60.3% | +750 s | 141 | 82.5 |
-| 0.55 | 30.2% | +780 s | 47 | 27.5 |
-| 0.60 | 12.7% | +870 s | 11 | 6.4 |
-| 0.65 | 6.3% | +960 s | 0 | 0.0 |
+| 0.25 | 95.2% / 856.7 | 95.2% / 854.9 | 85.7% / 576.0 | 87.3% / 591.8 |
+| 0.30 | 93.7% / 682.4 | 93.7% / 667.8 | 85.7% / 481.8 | 85.7% / 482.4 |
+| 0.35 | 90.5% / 485.3 | 90.5% / 464.9 | 81.0% / 346.2 | 81.0% / 340.9 |
+| 0.40 | 85.7% / 293.0 | 85.7% / 271.3 | 76.2% / 218.7 | 76.2% / 213.4 |
+| 0.45 | 79.4% / 171.3 | 79.4% / 150.3 | 73.0% / 132.7 | 73.0% / 128.7 |
+| 0.50 | 60.3% / 82.5 | 60.3% / 70.8 | 55.6% / 71.3 | 55.6% / 67.3 |
+| 0.55 | 30.2% / 27.5 | 30.2% / 21.6 | 30.2% / 24.0 | 30.2% / 19.9 |
 
-There is no good point on this curve. At 0.35 the alarm rate is unusable; at
-0.55 the detection rate is unusable. That is the honest shape of a
-single-camera detector built this way, and it is the reason the product is not a
-single-camera detector.
+Each cell is fires detected / false positives per camera-day.
 
-### Why the false positives happen
+- **The ceiling does not move the curve.** map + ceiling at 0.35 gives 81.0% at
+  340.9; the uncalibrated detector at 0.40 already gives 85.7% at 293.0, more
+  detection for fewer false alarms. The same holds at every threshold from 0.25
+  to 0.50. Only at 0.55, where every variant finds 30% of fires, does the ceiling
+  save a few false positives at equal detection, and nobody would run there.
+- **The map does move it, a little.** It detects exactly the same fires as the
+  uncalibrated detector at every threshold and raises fewer false positives at
+  every threshold: 4% fewer at 0.35, 12% at 0.45, 21% at 0.55. The gain is
+  small because only 16 of 44 cameras had another date to learn from.
 
-The diagnosis is sharper than "it is noisy". On the worst sequences the highest
-confidence reached anywhere in the sequence occurs on a frame labelled **clear**:
+So the map is shipped and the ceiling is not.
 
-| Sequence | FP frames | Peak on clear | Peak on smoke |
-|---|---|---|---|
-| `20191005_FIRE_wc-n-mobo-c` | 34 of 39 | 0.63 | 0.63 |
-| `20180614_FIRE_hp-s-mobo-c` | 32 of 40 | 0.58 | 0.58 |
-| `20180723_FIRE_tp-e-mobo-c` | 31 of 40 | 0.59 | 0.59 |
-| `20190825_FIRE_sm-w-mobo-c` | 30 of 40 | 0.58 | 0.58 |
-| `20180517_FIRE_rm-n-mobo-c` | 29 of 40 | 0.53 | 0.53 |
+### 3.3 The ceiling's six extra misses: never, not late
 
-The two peaks being identical means the detector's best candidate in the whole
-sequence is a persistent feature present before the fire started, and that it
-stayed locked onto that feature rather than onto the plume. These are not
-flickers. They are stable, growing, anchored, soft-edged, desaturating regions
-that satisfy every test the product applies, on eight of the 44 cameras. We did
-not identify what they physically are; the likeliest candidates are marine layer
-creeping up a valley, and slope shadow rotating across a ridge at a rate the
-low-frequency shading correction does not fully remove.
+All six fires the ceiling lost are lost outright, not delayed. Swept all the way
+down to 0.25, the ceiling variant finds 54 fires against the uncalibrated
+detector's 60: the gap stays at six at every threshold on the curve.
 
-By contrast, 17 of the 64 sequences produce zero false positives across their
-whole clear period. The problem is concentrated in particular camera views
-rather than spread evenly, which suggests a per-camera calibration would help
-far more than a threshold change. That is not built.
+| Sequence | Uncalibrated, at 0.35 | Ceiling, at 0.35 |
+|---|---|---|
+| `20160604_FIRE_rm-n-mobo-c` | alert at +900 s, peak 0.51 | never; peak 0.35 |
+| `20170807_FIRE_bh-n-mobo-c` | alert at +120 s, peak 0.38 | never; peak 0.30 |
+| `20180919_FIRE_rm-e-mobo-c` | alert at +1320 s, peak 0.37 | never; peak 0.33 |
+| `20190829_FIRE_pi-e-mobo-c` | alert at +1621 s, peak 0.45 | never; peak 0.16 |
+| `20191005_FIRE_hp-s-mobo-c` | alert at +240 s, peak 0.57 | never; the 0.57 peak is on a clear frame |
+| `20191005_FIRE_wc-n-mobo-c` | alert at 0 s, peak 0.63 | never; the 0.63 peak is on a clear frame |
 
-## 4. What the second camera buys
+The last one needs a caveat in our disfavour. That sequence's uncalibrated peak
+was on a clear frame as well (0.63 on clear and on smoke frames alike), so its "alert at 0 s" was probably
+the nuisance feature rather than the plume, and the map alone still finds it, at
++480 s with 2 false-positive frames instead of 34.
 
-This is the product's central claim, so it is measured rather than asserted.
+The mechanism is plain. A camera whose clear afternoons regularly score 0.45
+somewhere in frame has a ceiling near 0.45, and a real plume that scores 0.45 on
+that camera is then indistinguishable from its ordinary afternoon. The ceiling
+trades those fires for fewer alarms, which a lower-threshold curve already
+offers. The median alert with the ceiling also moved from +60 s to +120 s.
 
-Measured on the 33 sequences from the 8 dates where two or more cameras on
-**different summits** recorded the same fire, applying the real rule from
-`geometry.cross_rays`: a second camera must see something on a bearing that
-crosses the first camera's in front of both of them and within range, within 120
-seconds.
+### 3.4 The threshold, chosen on the corroborated curve
+
+The product does not alert on one camera: it consults. So the threshold was
+chosen on the curve that includes the second camera, on the 33 development
+sequences from the 8 dates where two or more summits saw the same fire, with the
+map calibration:
 
 | Threshold | One camera: detect / FP-day | Corroborated: detect / FP-day |
 |---|---|---|
-| 0.30 | 93.9% / 720.6 | 72.7% / 329.5 |
-| **0.35** | **87.9% / 507.4** | **63.6% / 201.8** |
-| 0.40 | 84.8% / 307.8 | 45.5% / 96.9 |
-| 0.45 | 75.8% / 165.3 | 42.4% / 35.3 |
-| 0.50 | 60.6% / 71.8 | 0.0% / 12.5 |
+| 0.25 | 97.0% / 872.2 | 72.7% / 449.2 |
+| 0.30 | 93.9% / 687.5 | 72.7% / 296.4 |
+| 0.35 | 87.9% / 465.2 | 63.6% / 157.3 |
+| 0.40 | 84.9% / 264.5 | 45.5% / 71.8 |
+| **0.45** | **75.8% / 124.3** | **42.4% / 21.7** |
+| 0.50 | 60.6% / 49.0 | 0.0% / 12.5 |
 
-At the shipped threshold, requiring corroboration **cuts false positives by 60%**
-and costs 24 points of detection. At 0.45 it cuts them by 79% and costs 33
-points. The mechanism works and the direction is right. It is not enough on its
-own to make the numbers deployable, and the trade is expensive.
+From 0.35 to 0.40 the corroborated false-positive rate halves and costs six
+fires in 33. From 0.40 to 0.45 it falls by a further 70%, from 71.8 to 21.7, and
+costs one. From 0.45 to 0.50 corroborated detection goes to zero. 0.45 is the
+knee, so 0.45 is shipped, and it was 0.35 before only because 0.35 had been
+picked on rendered data before any recorded evaluation existed.
 
-Two things this measurement understates, both in the conservative direction: it
-does not model the agent's four-frame history bar before it will escalate, nor
-its re-reads of the origin camera, and both raise precision further. One thing
-it overstates: a corroborating detection here only has to be within 120 seconds,
-where the real agent also requires the neighbour's detection to survive its own
-rejectors.
+The calibration variant and the threshold were then written into the code
+(`SHIPPED_VARIANT`, `SHIPPED_THRESHOLD`, `SUSPECT_AT`) and committed as
+`62063f7`, before a single test sequence had been downloaded.
 
-## 5. Localisation
+## 4. What "+438 seconds" means, and what it does not
 
-**On recorded data, this largely does not work, and the failure is instructive.**
+**The comparison is against a hindsight annotator, not a live watcher.** FIgLib's
+offset zero is the first frame in which an expert, reviewing the whole recorded
+sequence afterwards, could see the plume, knowing where it would appear. A person
+watching a live wall of cameras does not have that advantage, so "+438 s after the
+mark" is a lag behind the best a human could possibly do on these frames, not a
+lag behind a human on shift. It still means the system was **never earlier** than
+that mark, on any fire, at any threshold.
 
-Of the 8 dates with two or more summits, the crossing succeeded on 2 and was
-**refused on 6**:
+**Published detectors on the same library are faster.** On FIgLib, SmokeyNet
+reports a mean time to detection of 3.12 minutes (Dewangan et al., *Remote
+Sensing* 14(4):1007, 2022, arXiv:2112.08598), a re-run of SmokeyNet 4.70 ± 0.90
+minutes and 3.66 with weather data (arXiv:2212.14143), and ContrastSwin 2.26
+minutes (arXiv:2311.10116). Those are means on their own splits and operating
+points, and ours is a median on ours, so the comparison is loose; but our median
+of 7.3 minutes at the shipped point is slower than all of them, and we say so.
+
+**There is no sourced live comparator in minutes.** We looked for a published
+figure for how long after ignition a fire is first reported by a 911 call or by
+people watching cameras, and did not find one we could verify. ALERTCalifornia
+says its cameras beat 911 calls "over 30% of the time" (alertcalifornia.org),
+which gives no minutes. We do not put a number on how much earlier or later this
+system would be than people in the field, because we cannot source one.
+
+## 5. Localisation on recorded data: not useful yet
+
+Plainly: **triangulation does not work on real data yet.** Of the 8 dates with
+two or more summits, the crossing succeeded on 2 and was refused on 6. Where two
+independent pairs could both be crossed, the fixes landed a median of **7.4 km
+apart** with the map calibration (6.9 km without). A position that uncertain is
+not a location anyone could send a crew to.
 
 | Date | Cameras | Outcome |
 |---|---|---|
-| 20171010 | hp-w, rm-e | **fix**, crossing 59.1°, residual 0.0 m |
-| 20180806 | mg-s, vo-w | **fix**, crossing 48.9°, residual 0.0 m |
+| 20171010 | hp-w, rm-e | fix, crossing 59.1° |
+| 20180806 | mg-s, vo-w | fix, crossing 48.9° |
 | 20160604 | rm-n, smer-tcs3 | refused, BEHIND_CAMERA |
 | 20180727 | bh-n, bh-s, bl-e, mg-w, wc-n | refused, BEHIND_CAMERA |
 | 20190829 | bl-n, pi-e, rm-w, smer-tcs8 | refused, BEHIND_CAMERA |
@@ -164,43 +230,24 @@ Of the 8 dates with two or more summits, the crossing succeeded on 2 and was
 | 20191005 | hp-s, vo-n, wc-e, wc-n | refused, RAYS_TOO_PARALLEL |
 | 20200911 | lp-e, mlo-s, pi-s | refused, BEYOND_RANGE |
 
-Where two independent pairs of bearings could both be crossed, the two fixes
-landed a **median of 6.9 km apart**. That is not a working fix, and the system
-says so: every one of those six is a refusal with a named reason, not a
-confident wrong answer. Four of them are `BEHIND_CAMERA`, meaning the two
-bearings only meet behind one of the two lookouts, which is geometrically
-impossible for one object.
+The refusals are the right failure: named, with a reason, instead of a confident
+wrong point. The likely cause is upstream: the bearing is taken from the first
+threshold crossing, and at these false-positive rates that is often not the
+fire. FIgLib publishes no fire coordinates, so accuracy against a surveyed point
+cannot be measured at all.
 
-The likely cause is upstream. The bearing is taken at the *first* frame that
-crosses the threshold, and at 487 false positives per camera-day the first
-crossing is frequently a false positive rather than the fire. The system is
-therefore crossing bearings to two different things and correctly refusing. Fix
-the false-positive rate and this should largely resolve; we ran out of time to
-demonstrate that.
-
-**The geometry itself is correct**, and that is testable separately because we
-can place a fire ourselves. On synthetic incidents rendered by
-`firstsmoke.synth`, where the true latitude and longitude are known:
-
-| | |
-|---|---|
-| Fix error against the placed fire | **13 m** |
-| Reported 1σ semi-major axis | 161 m |
-| Crossing angle | 60.2° |
-| Residual | 36.6 m |
-
-The reported uncertainty contains the true error with a large margin, which is
-the property that matters most: an error bar that does not contain the truth is
-worse than no error bar. `tests/test_agent.py` asserts both, and asserts the
-bearings are within 4° of each camera's true line of sight.
+**The geometry itself is correct** where it can be checked. On rendered incidents
+where we placed the fire, the fix lands **13 m** from the truth inside a reported
+161 m 1σ ellipse, and `tests/test_agent.py` asserts it.
 
 ## 6. Which rejectors actually fire
 
-Across all 4,959 frames:
+Across all 4,959 frames, with the map calibration, at 0.35:
 
 | Rejector | Times fired |
 |---|---|
-| `TOO_BRIEF` (fewer than three frames of history) | 507 |
+| `TOO_BRIEF` (fewer than three frames of history) | 506 |
+| `HABITUAL_REGION` (on this camera's learnt nuisance map) | 63 |
 | `ERRATIC_BASE` (base travelling faster than a fire can) | 29 |
 | `GROUND_DRIFT` (dust: sideways, not rising, not neutral) | 27 |
 | `FLARE` (clipped sensor) | 15 |
@@ -210,10 +257,9 @@ Across all 4,959 frames:
 
 `TOO_BRIEF` dominating is the design working: most candidates are dismissed for
 not having been observed long enough, which is the whole thesis. But the
-specific impostor rules fire rarely — 87 times in total — which tells us the
-persistent false positives in §3 are **not** being caught by any named rule.
-They pass every test. That is the most useful single finding in this evaluation
-and it is where the next work should go.
+hand-written impostor rules fire rarely, 87 times in total. The persistent false
+positives passed every named rule, which is why the calibration exists; the
+learnt map now catches 63 more, and most still get through.
 
 ## 7. Cameras that reported themselves unusable
 
@@ -249,7 +295,22 @@ evaluated on a Californian one. It contributes a modest amount of precision and
 nothing to recall, and the pipeline runs without it and says so in the run
 record when the file is absent.
 
-## 9. What this evaluation does not establish
+## 9. Real footage from outside the network
+
+The service also accepts a video or stills from any single camera (see the
+README). None of that footage has a surveyed camera, so none of it can be
+corroborated or located, and every flag it raises carries `NO_SECOND_VIEW`. On
+two public clips, at the shipped threshold:
+
+| Clip | What it contains | What Firstsmoke did |
+|---|---|---|
+| `waldo-canyon-clear-to-onset.mp4` (Steve Moraco, CC BY 3.0), 21.6 s a frame | clear sky, then a smoke column from about 0:20 | 240 of 1,200 frames read; 22 flags. Nine of them, from 0:03 to 0:19, come before any smoke is in frame. The highest score, 0.75 at 0:44, is on the smoke column |
+| `grand-canyon-clouds-timelapse.mp4` (NPS, CC BY 4.0), 1 s a frame assumed | cloud over the canyon, no smoke | 42 of 1,108 frames read; 5 flags, all false, highest 0.51 |
+
+Both are what the numbers above predict: on one camera it cries wolf on cloud,
+and it does find a real column eventually.
+
+## 10. What this evaluation does not establish
 
 - **No field deployment trial exists.** We searched for a published
   outcome study for any camera-based safety detection product, in any domain,
@@ -266,10 +327,11 @@ record when the file is absent.
 - **Every sequence contains a fire.** FIgLib has no all-clear days, so the clear
   period is only forty minutes per camera and always immediately precedes an
   ignition. A true false-positive rate needs quiet days, and we do not have them.
-- **The threshold was not tuned on a held-out set.** 0.35 was chosen on
-  synthetic data before the recorded evaluation was run, which is the right order,
-  but the operating curve in §3 was then computed on the same 64 sequences that
-  are the only recorded evidence we have.
+- **The shipped threshold and calibration were chosen on the development set**,
+  and every number above is on that set. The 130-sequence test set is frozen and
+  not yet scored.
+- **Only 16 of 44 cameras had a second date** to learn a calibration from, so the
+  calibration's effect is measured on 30 sequences.
 
 ## Reproducing this
 
@@ -280,5 +342,6 @@ uv pip install --python .venv/bin/python -e products/firstsmoke
 cd products/firstsmoke
 python scripts/fetch_figlib.py          # about 5,000 frames, 770 MB, 25 minutes
 python scripts/train_confirmer.py       # optional, 5 minutes
-python scripts/evaluate.py              # about 12 minutes, writes docs/evaluation.json
+python scripts/evaluate.py              # about 40 minutes: baseline and three calibration variants
+python scripts/evaluate.py --test data/figlib_test_sequences.txt   # the frozen configuration, once
 ```
