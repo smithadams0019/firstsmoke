@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+build/
+dist/
+.DS_Store
+
+# Rendered incident bundles: built by scripts/build_scenarios or at container
+# build time. Reproducible, so not committed.
+products/firstsmoke/data/scenarios/
+
+# HPWREN imagery is CC BY-NC-ND 4.0 and is never committed. The fetch script
+# caches it in ~/.cache/firstsmoke; this guard is belt and braces.
+**/figlib/
+**/pyro-sdis/

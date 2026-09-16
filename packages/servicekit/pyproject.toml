@@ -1,0 +1,22 @@
+[project]
+name = "servicekit"
+version = "0.1.0"
+description = "Shared FastAPI service and UI shell for the opencv26 entries"
+requires-python = ">=3.12"
+dependencies = [
+    "visioncore",
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.53.0",
+    "python-multipart==0.0.32",
+    "pydantic==2.13.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/servicekit"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

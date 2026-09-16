@@ -1,0 +1,45 @@
+[project]
+name = "opencv26-workspace"
+version = "0.1.0"
+description = "Shared foundation for the OpenCV AI Competition 2026 entries"
+requires-python = ">=3.12"
+dependencies = [
+    "visioncore",
+    "servicekit",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+visioncore = { workspace = true }
+servicekit = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "httpx==0.28.1",
+    "ruff==0.16.7",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/visioncore/tests", "packages/servicekit/tests", "bench/tests"]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+markers = [
+    "slow: takes more than a second",
+    "aws: touches real AWS, skipped unless OPENCV26_AWS_TESTS=1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".venv", "products"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["E501"]

@@ -1,0 +1,52 @@
+[project]
+name = "firstsmoke"
+version = "0.1.0"
+description = "A lookout for mountain-top camera networks: finds the first smoke column, consults its neighbours, and crosses bearings on a map"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python==5.0.0.93",
+    "numpy==2.5.3",
+    "visioncore",
+    "servicekit",
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.53.0",
+    "python-multipart==0.0.32",
+    "pydantic==2.13.5",
+    "boto3==1.42.6",
+]
+
+[project.optional-dependencies]
+# Training and export only. The runtime loads ONNX through cv2.dnn and never imports these.
+train = ["onnx==1.20.0"]
+
+[project.scripts]
+firstsmoke = "firstsmoke.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/firstsmoke"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "slow: takes more than a second",
+    "network: needs the public internet, skipped unless FIRSTSMOKE_NETWORK_TESTS=1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

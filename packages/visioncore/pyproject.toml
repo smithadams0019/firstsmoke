@@ -1,0 +1,21 @@
+[project]
+name = "visioncore"
+version = "0.1.0"
+description = "Shared OpenCV 5 vision primitives for the opencv26 entries"
+requires-python = ">=3.12"
+dependencies = [
+    # PINNED HARD. `opencv-python` unpinned resolves to 4.14.x, which shipped
+    # after 5.0.0 and would fail the competition's core requirement.
+    "opencv-python-headless==5.0.0.93",
+    "numpy==2.5.3",
+]
+
+[project.optional-dependencies]
+s3 = ["boto3>=1.42"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/visioncore"]

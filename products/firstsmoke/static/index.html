@@ -1,0 +1,192 @@
+<!doctype html>
+<!--
+  Firstsmoke's own page, layered over servicekit.
+
+  servicekit supports a product supplying its own index.html in its static
+  directory, and this product uses that rather than the default shell markup.
+  The reason is in docs/design/atlas.md: the design for this product is a fixed
+  252 px rail with a map as the document, and the shell's markup is a masthead
+  with stacked panels. Token overrides cannot turn one into the other. Every
+  colour, every type size and every screen id here comes from the atlas, and the
+  API layer is still the shell's (/shell/js/api.js), so there is one HTTP client
+  and one job lifecycle across all five entries.
+-->
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{PRODUCT_TITLE}}</title>
+<meta name="description" content="{{PRODUCT_TAGLINE}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/assets/css/product.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="ell" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#B4301A" stop-opacity=".30"/>
+    <stop offset="100%" stop-color="#B4301A" stop-opacity=".08"/>
+  </radialGradient>
+</defs></svg>
+
+<div class="screen">
+
+  <!-- ------------------------------------------------------------ rail -- -->
+  <aside class="rail">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect width="26" height="26" rx="6" fill="#2B5D8A"/>
+        <circle cx="13" cy="13" r="7.5" stroke="#fff" stroke-width="1.6"/>
+        <path d="M13 13L19.6 7.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="1.7" fill="#fff"/>
+      </svg>
+      <div><b>Firstsmoke</b><small>Wildfire ignition watch</small></div>
+    </div>
+
+    <button class="primary" id="run-default" type="button">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M4 2.8l8.4 5.2L4 13.2z" fill="#fff"/>
+      </svg>
+      Run an incident
+    </button>
+
+    <nav class="nav" aria-label="Sections">
+      <a class="on" href="#map-panel" data-nav="map">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M1.6 4.1l4.3-1.7 4.2 1.7 4.3-1.7v9.5l-4.3 1.7-4.2-1.7-4.3 1.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.9 2.4v9.5M10.1 4.1v9.5" stroke="currentColor" stroke-width="1.4"/></svg>
+        Map<span class="ct" id="nav-map">—</span>
+      </a>
+      <a href="#wall-panel" data-nav="wall">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.4" y="2.4" width="6" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="8.6" y="2.4" width="6" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1.4" y="8.6" width="6" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="8.6" y="8.6" width="6" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+        Camera wall<span class="ct" id="nav-wall">—</span>
+      </a>
+      <a href="#trail-panel" data-nav="trail">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.8c2.4 3 3.9 5 3.9 6.8a3.9 3.9 0 11-7.8 0C4.1 6.8 5.6 4.8 8 1.8z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Detections<span class="ct" id="nav-detections">—</span>
+      </a>
+      <a href="#timeline-panel" data-nav="timeline">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.4V8l2.6 1.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Timeline<span class="ct" id="nav-timeline">—</span>
+      </a>
+      <hr>
+      <a href="#incidents-panel" data-nav="incidents">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M1.6 12.4l4.2-6 2.9 3.6 2-2.4 3.7 4.8z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Incidents
+      </a>
+      <a href="#method-panel" data-nav="method">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.2" y="2.2" width="11.6" height="11.6" rx="1.6" stroke="currentColor" stroke-width="1.4"/><path d="M5 6.2h6M5 9.4h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        How it decides
+      </a>
+    </nav>
+
+    <div class="railfoot">
+      <div class="rr"><span>OpenCV</span><span id="rf-opencv">…</span></div>
+      <div class="rr"><span>Engine</span><span id="rf-engine">MOG2 + hysteresis</span></div>
+      <div class="rr"><span>Frames read</span><span id="rf-frames">—</span></div>
+      <div class="rr"><span>Cameras consulted</span><span id="rf-consulted">—</span></div>
+      <div class="rr"><span>Outcome</span><span id="rf-outcome">idle</span></div>
+      <div class="meter"><i id="rf-meter" style="width:0%"></i></div>
+      <div class="rr"><span>Build</span><span id="rf-sha">…</span></div>
+    </div>
+  </aside>
+
+  <!-- ------------------------------------------------------------ main -- -->
+  <main class="main">
+    <div class="topbar">
+      <span class="crumb"><span class="dot" id="tb-dot"></span><span id="tb-title">No incident loaded</span></span>
+      <span class="tb-sep"></span>
+      <span class="tb-item" id="tb-times">Choose an incident to start the watch</span>
+      <span class="tb-sep"></span>
+      <span class="tb-item" id="tb-consulted">Consulted <b>0</b> cameras</span>
+      <span class="tb-right">
+        <button class="ghost" id="tb-raw" type="button" hidden>Open the raw frames</button>
+        <button class="ghost" id="theme-toggle" type="button" aria-live="polite">Theme</button>
+      </span>
+    </div>
+
+    <div class="page">
+      <div class="pagehead">
+        <div>
+          <h1 id="page-title">A lookout for mountain-top camera networks</h1>
+          <p id="page-sub">
+            One camera sees a weak change. Firstsmoke turns the pixel column it appeared in
+            into a compass bearing, works out which other cameras overlook that bearing, reads
+            them, and crosses what they answer. Pick an incident below to watch it happen.
+          </p>
+        </div>
+        <div class="ha" id="page-actions"></div>
+      </div>
+
+      <div class="kpis" id="kpis" hidden></div>
+
+      <div class="callout" id="callout">
+        <div>
+          <h3>Nothing is being watched yet</h3>
+          <p id="callout-text">
+            Four incidents are bundled with the service, one for each way the watch can end:
+            a confirmed crossing, a stand-down, a fire nobody can corroborate, and a pair of
+            cameras that are up but not watching anything.
+          </p>
+        </div>
+        <div class="callout-actions" id="callout-actions"></div>
+      </div>
+
+      <div class="body">
+        <div class="split" id="split" hidden>
+          <section class="panel map-panel" id="map-panel">
+            <div class="map" id="map">
+              <span class="map-note">contour interval 20 m</span>
+            </div>
+          </section>
+          <section class="panel" id="trail-panel">
+            <div class="ph"><h2 id="trail-title">What the watch did, in order</h2><span class="sub" id="trail-sub"></span></div>
+            <div class="trail" id="trail"></div>
+            <div class="held" id="held" hidden></div>
+          </section>
+        </div>
+
+        <section class="panel" id="incidents-panel">
+          <div class="ph"><h2>Bundled incidents</h2><span class="sub">rendered, not photographed</span></div>
+          <div class="scenarios" id="scenarios"></div>
+        </section>
+
+        <section class="panel" id="wall-panel" hidden>
+          <div class="ph"><h2>Camera wall</h2><span class="sub" id="wall-sub"></span></div>
+          <div class="wall" id="wall"></div>
+        </section>
+
+        <section class="panel" id="timeline-panel" hidden>
+          <div class="ph"><h2>Every state change, with what caused it</h2><span class="sub" id="timeline-sub"></span></div>
+          <div class="timeline" id="timeline"></div>
+        </section>
+
+        <section class="panel" id="method-panel">
+          <div class="ph"><h2>How it decides</h2><span class="sub">no thresholds hidden in the code</span></div>
+          <div class="method" id="method"></div>
+        </section>
+      </div>
+
+      <div class="foot">
+        <span>
+          <b>PG&amp;E pleaded guilty to 84 counts of involuntary manslaughter</b> over the 2018
+          Camp fire, and to one count of unlawfully causing a fire. Its own remedy was 144
+          weather stations and 60 high definition cameras.
+        </span>
+        <span class="foot-src">PG&amp;E Form 10-K, filed with the SEC 25 February 2021</span>
+      </div>
+      <div class="foot foot--source">
+        <span id="attribution">
+          Camera geometry: HPWREN, University of California San Diego.
+        </span>
+        <span class="foot-src">
+          The bundled incidents are rendered, not photographed. The measured results are in
+          docs/evaluation.md, from 65 recorded HPWREN sequences.
+        </span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/assets/js/product.js"></script>
+</body>
+</html>
