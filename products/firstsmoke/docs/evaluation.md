@@ -350,7 +350,7 @@ foreground, and the wisp itself scored 0.37 to 0.43, under the 0.45 threshold
 (`media/real/firstsmoke/PROVENANCE.md` §3).
 
 The Waldo and Grand Canyon rows are the deployed service's own results, on image
-`fs-flags60` (commit `6efba0c`). A local run of the Waldo clip gave
+`fs-21772f1` (commit `21772f1`). A local run of the Waldo clip gave
 22 flags with the same peak, so small decoder or CPU differences move the weakest
 flags either side of 0.45.
 

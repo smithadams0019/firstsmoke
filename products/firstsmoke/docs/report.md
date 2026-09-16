@@ -369,7 +369,7 @@ false positives per camera-day. Moving the threshold from 0.35 to 0.45 raised th
 dev median alert from +60 s to +438 s. That delay is the price of the lower
 false-alarm rate.
 
-**Real footage.** On the live service (image `fs-flags60`, commit `6efba0c`), the
+**Real footage.** On the live service (image `fs-21772f1`, commit `21772f1`), the
 Waldo Canyon time-lapse raised 27 flags. Nine came before any smoke was in frame,
 on cloud, and the highest score (0.75) was on the smoke column. A Grand Canyon
 cloud time-lapse raised 5 flags, all false. A faint prescribed-burn wisp in North

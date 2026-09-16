@@ -4,7 +4,7 @@ A lookout for mountain-top camera networks. It finds the first smoke column of a
 wildfire, asks the neighbouring cameras when it is unsure, and crosses their
 bearings on a map.
 
-**Live: https://afynmqkk9e.eu-west-1.awsapprunner.com** (AWS App Runner, eu-west-1, image `fs-flags60`, commit `6efba0c`)
+**Live: https://afynmqkk9e.eu-west-1.awsapprunner.com** (AWS App Runner, eu-west-1, image `fs-21772f1`, commit `21772f1`)
 **Repository: https://github.com/smithadams0019/firstsmoke**
 
 Built for the OpenCV AI Competition 2026. OpenCV 5.0.0, pinned.
