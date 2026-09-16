@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_text(json.dumps(payload, indent=2))
 
     print(f"\n{len(evaluation.results)} sequences in {elapsed:.0f} s\n")
-    print(f"{'threshold':>9}  {'detection':>9}  {'median':>7}  {'fp frames':>9}  {'fp/cam-day':>10}")
+    print(f"{'threshold':>9}  {'detection':>9}  {'median':>7}  {'fp':>9}  {'fp/cam-day':>10}")
     for row in evaluation.operating_curve():
         at = row["median_time_to_alert_s"]
         median = "-" if at is None else f"{at}s"
@@ -92,10 +92,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{'':>9}  {'detect   fp/cam-day':>22}  {'detect   fp/cam-day':>22}")
         for row in corroboration:
             one, both = row["one_camera"], row["corroborated"]
+            one_rate = one["detection_rate"] * 100
+            both_rate = both["detection_rate"] * 100
             print(
                 f"{row['threshold']:>9.2f}  "
-                f"{one['detection_rate'] * 100:>6.1f}%  {one['false_positives_per_camera_day']:>11.1f}  "
-                f"{both['detection_rate'] * 100:>6.1f}%  {both['false_positives_per_camera_day']:>11.1f}"
+                f"{one_rate:>6.1f}%  {one['false_positives_per_camera_day']:>11.1f}  "
+                f"{both_rate:>6.1f}%  {both['false_positives_per_camera_day']:>11.1f}"
             )
     print("\n" + json.dumps(evaluation.summary(), indent=2))
     print(f"\nwrote {args.out}")
