@@ -43,7 +43,7 @@ On 64 recorded sequences from 44 real HPWREN cameras, at the shipped operating
 point (a per-camera nuisance map, threshold 0.45): **with a second camera
 required to agree, 42% of fires at 21.7 false alarms per camera-day; on one
 camera, 79% at 150, a median of 7.3 minutes after the human who labelled them.**
-Before calibration it was 90.5% at 487. Neither is deployable. Those numbers
+Before calibration it was 90.5% at 485. Neither is deployable. Those numbers
 come from the set the threshold was chosen on; a frozen 130-sequence test set is
 not yet scored. Triangulation on real data is not useful yet: refused on six of
 eight dates, and 7.4 km of spread where it crossed. On synthetic incidents where

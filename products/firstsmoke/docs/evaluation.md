@@ -9,9 +9,10 @@ At the shipped operating point, with per-camera calibration and a second camera
 required to agree, it finds **42% of fires** at **21.7 false alarms per
 camera-day**. One camera alone finds **79%** at **150 a camera-day**, a median of
 **7.3 minutes** after a human annotator marked the smoke. Before calibration and
-the threshold change, it was 90.5% at 487 a camera-day. We bought a 22-fold cut
-in corroborated false alarms with half the detections, and both numbers are
-still far from what a lookout service would switch on.
+the threshold change, one camera found 90.5% at 485 a camera-day, and with a
+second camera 63.6% at 199.5. We bought a nine-fold cut in corroborated false
+alarms with a third of the corroborated detections, and both numbers are still
+far from what a lookout service would switch on.
 
 **What these numbers are not.** The threshold and the calibration variant were
 chosen on these same 64 sequences, so they are optimistic. A test set of 130
