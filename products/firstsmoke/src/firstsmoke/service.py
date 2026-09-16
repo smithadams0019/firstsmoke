@@ -11,6 +11,10 @@ endpoint. What Firstsmoke adds is three things the shell cannot know about:
   without finding a file to upload, and the scenario route feeds a bundled
   incident through exactly the same job machinery as an upload so there is no
   second code path to get out of step.
+* **`POST /api/stills`** — several stills from one camera, packed into the zip
+  form the job path already accepts. A single video or zip goes through the
+  shell's own ``POST /api/jobs``; see :mod:`firstsmoke.uploads` for what an
+  upload with no surveyed camera can and cannot conclude.
 * **`GET /api/live`** — the live-camera switch, off by default. See
   :mod:`firstsmoke.live`.
 
@@ -21,11 +25,13 @@ into progress messages and its evidence frames into files the UI can fetch.
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 from typing import Any
 
 import cv2
-from fastapi import Request
+from fastapi import File, Form, Request, UploadFile
 from servicekit import ProductInfo, ServiceConfig, create_app
 from servicekit.errors import ServiceError
 from servicekit.jobs import JobContext
@@ -38,9 +44,10 @@ from .candidates import draw_horizon, draw_regions
 from .confirm import load_confirmer
 from .detector import CONFIRM_AT, SUSPECT_AT, CameraReading
 from .evaluate import default_network
-from .frames import Incident, load_bundle
+from .frames import IMAGE_SUFFIXES, VIDEO_SUFFIXES, Incident, SequenceError, load_bundle
 from .paths import calibration_file, scenario_dir, static_dir
 from .scenarios import SCENARIOS, ensure_scenario, scenario_catalogue
+from .uploads import UploadReport, is_bundle, load_upload, stills_to_zip
 
 PRODUCT = ProductInfo(
     slug="firstsmoke",
@@ -88,14 +95,60 @@ def _threshold(value: Any) -> float:
     return min(max(number, 0.1), CONFIRM_AT - 0.01)
 
 
+UPLOAD_MAX_FLAGS = 24
+"""Uploaded footage keeps watching after a flag. This bounds how many it raises,
+so a clip full of cloud cannot produce an unreadable list; reaching it stops the
+watch and the result says so."""
+
+
+def _flag_frames(lookout: Lookout, ctx: JobContext, record: RunRecord) -> None:
+    """One annotated frame per flag on uploaded footage: the frame that raised it."""
+    for number, alert in enumerate(lookout.alerts, start=1):
+        reading = next(
+            (r for r in reversed(lookout.readings)
+             if r.camera_id == alert.origin_camera and r.timestamp == alert.raised_at),
+            None,
+        )
+        if reading is None:
+            continue
+        uri = _overlay(reading, ctx, f"flag-{number:02d}-{reading.frame_index:03d}")
+        if uri:
+            record.add_evidence(
+                Evidence(
+                    label=lookout.network.get(reading.camera_id).label,
+                    kind="overlay",
+                    uri=uri,
+                    frame_index=reading.frame_index,
+                    caption=alert.headline,
+                    metrics={
+                        "confidence": round(alert.confidence, 3),
+                        "usability": reading.scene.usability.value,
+                        "flag": number,
+                        "at": alert.raised_at.isoformat(),
+                    },
+                )
+            )
+
+
 def analyze(ctx: JobContext) -> RunRecord:
     """Run the escalation loop over an uploaded or bundled incident."""
     record = ctx.record
-    ctx.progress(4, "reading the incident bundle")
+    upload: UploadReport | None = None
     try:
-        incident: Incident = load_bundle(ctx.input_path)
-    except Exception as exc:  # the loader raises SequenceError with a readable message
+        if is_bundle(ctx.input_path):
+            ctx.progress(4, "reading the incident bundle")
+            incident: Incident = load_bundle(ctx.input_path)
+        else:
+            ctx.progress(4, "decoding the uploaded footage")
+            incident, upload = load_upload(ctx.input_path, ctx.params)
+            incident.name = str(record.input.get("filename") or incident.name)
+    except (SequenceError, KeyError, ValueError) as exc:
         raise ServiceError("BAD_REQUEST", str(exc)) from exc
+    if upload is not None:
+        record.input["upload"] = upload.to_dict()
+        for note in upload.notes:
+            record.warn(note)
+        ctx.note(f"footage decoded: {upload.coverage}", upload=upload.to_dict())
 
     record.input.update(
         {
@@ -150,11 +203,14 @@ def analyze(ctx: JobContext) -> RunRecord:
     lookout = Lookout(
         ReplaySource(incident), confirmer=confirmer, calibrations=calibrations,
         on_event=on_event, suspect_at=_threshold(ctx.params.get("threshold")),
+        keep_watching=upload is not None, max_alerts=UPLOAD_MAX_FLAGS,
     )
     alert = lookout.run()
 
     ctx.progress(88, "collecting the frames behind the decision")
-    for reading in lookout.readings:
+    if upload is not None:
+        _flag_frames(lookout, ctx, record)
+    for reading in lookout.readings if upload is None else []:
         if reading.camera_id in saved:
             continue
         if reading.detections or reading.scene.blind:
@@ -202,6 +258,20 @@ def analyze(ctx: JobContext) -> RunRecord:
     elif lookout.state in (State.WATCH, State.STOOD_DOWN):
         record.metrics["headline"] = "Nothing raised. The watch continues."
 
+    if upload is not None:
+        record.metrics["coverage"] = upload.coverage
+        ended = lookout.transitions and lookout.transitions[-1].trigger == "sequence_ended"
+        if not ended:
+            last = lookout.alerts[-1].raised_at if lookout.alerts else None
+            stopped = (
+                f"The watch stopped at its {len(lookout.alerts)}th flag, the most one upload may "
+                "raise, before the end of the footage"
+            )
+            record.metrics["stopped_early"] = stopped
+            record.input["upload"]["notes"].append(stopped + ".")
+            record.input["upload"]["stopped_at"] = last.isoformat() if last else None
+            record.warn(stopped + ".")
+
     if incident.truth:
         record.results.append({"truth": incident.truth})
 
@@ -228,7 +298,7 @@ def load_calibrations() -> CalibrationSet | None:
 def build_config() -> ServiceConfig:
     return ServiceConfig(
         product=PRODUCT,
-        allowed_suffixes=(".zip",),
+        allowed_suffixes=(".zip", *sorted(VIDEO_SUFFIXES), *sorted(IMAGE_SUFFIXES)),
         max_upload_bytes=int(os.environ.get("FIRSTSMOKE_MAX_UPLOAD", 400 * 1024 * 1024)),
         static_dir=STATIC_DIR,
         max_concurrent_jobs=int(os.environ.get("FIRSTSMOKE_MAX_CONCURRENT", 2)),
@@ -245,7 +315,34 @@ def build_config() -> ServiceConfig:
                     "Below this a camera stays quiet. "
                     f"Between this and {CONFIRM_AT:.2f} it consults."
                 ),
-            }
+            },
+            {
+                "name": "interval_s",
+                "type": "number",
+                "label": "Seconds between frames",
+                "default": None,
+                "min": 0.01,
+                "max": 86400,
+                "help": "Real time between two frames of the footage. A lookout camera is 60.",
+            },
+            {
+                "name": "bearing_deg",
+                "type": "number",
+                "label": "Camera bearing, degrees",
+                "default": None,
+                "min": 0,
+                "max": 360,
+                "help": "Optional. Which way the centre of the frame faces.",
+            },
+            {
+                "name": "hfov_deg",
+                "type": "number",
+                "label": "Field of view, degrees",
+                "default": None,
+                "min": 1,
+                "max": 180,
+                "help": "Optional. Horizontal field of view.",
+            },
         ],
     )
 
@@ -285,6 +382,41 @@ def create() -> Any:
             "scenario": name,
             "events_url": f"/api/jobs/{job.job_id}/events",
         }
+
+    @app.post("/api/stills", status_code=202)
+    async def run_stills(
+        request: Request,
+        files: list[UploadFile] = File(...),
+        params: str = Form("{}"),
+    ) -> dict[str, Any]:
+        """Several stills from one camera, run as one job."""
+        try:
+            parsed = json.loads(params) if params else {}
+        except json.JSONDecodeError as exc:
+            raise ServiceError("BAD_REQUEST", f"params is not valid JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ServiceError("BAD_REQUEST", "params must be a JSON object")
+        limit = request.app.state.config.max_upload_bytes
+        stills: list[tuple[str, bytes]] = []
+        total = 0
+        for upload in files:
+            name = upload.filename or ""
+            if Path(name).suffix.lower() not in IMAGE_SUFFIXES:
+                raise ServiceError("UNSUPPORTED_MEDIA", f"{name or 'a file'} is not a still image",
+                                   accepted=sorted(IMAGE_SUFFIXES))
+            data = await upload.read()
+            total += len(data)
+            if total > limit:
+                raise ServiceError("TOO_LARGE", f"stills exceed {limit // (1024 * 1024)} MB",
+                                   max_bytes=limit)
+            stills.append((name, data))
+        if len(stills) < 2:
+            raise ServiceError("BAD_REQUEST", "send several stills from the same camera")
+        store = request.app.state.store
+        job = store.create("stills.zip", stills_to_zip(stills), parsed)
+        store.start(job)
+        return {"job_id": job.job_id, "status": job.status, "stills": len(stills),
+                "events_url": f"/api/jobs/{job.job_id}/events"}
 
     @app.get("/api/live")
     async def live() -> dict[str, Any]:

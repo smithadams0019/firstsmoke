@@ -127,6 +127,17 @@ class Detection:
     rejections: list[Rejection] = field(default_factory=list)
     confirmation: Confirmation | None = None
     evidence: dict[str, str] = field(default_factory=dict)
+    x_frac: float = 0.5
+    """Where across the frame the region sits, 0 at the left edge and 1 at the right."""
+    aim_known: bool = True
+    """Copied from the camera. Without it the bearing is arithmetic on a guess."""
+
+    @property
+    def where(self) -> str:
+        """The location a person can check: a bearing, or a place in the frame."""
+        if self.aim_known:
+            return f"at bearing {self.bearing_deg:.1f} degrees"
+        return f"at {round(100 * self.x_frac)}% across the frame"
 
     @property
     def stood_down(self) -> bool:
@@ -145,10 +156,10 @@ class Detection:
         if self.rejections:
             against = self.rejections[0].message
             return (
-                f"{lead} at bearing {self.bearing_deg:.1f} degrees: {because}. "
+                f"{lead} {self.where}: {because}. "
                 f"Against it: {against}."
             )
-        return f"{lead} at bearing {self.bearing_deg:.1f} degrees: {because}."
+        return f"{lead} {self.where}: {because}."
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -161,6 +172,8 @@ class Detection:
             "verdict": self.verdict.value,
             "bearing_deg": round(self.bearing_deg, 2),
             "bearing_sigma_deg": round(self.bearing_sigma_deg, 2),
+            "x_frac": round(self.x_frac, 4),
+            "aim_known": self.aim_known,
             "summary": self.summary(),
             "region": self.region.to_dict(),
             "growth": self.growth.to_dict(),
@@ -428,6 +441,8 @@ class CameraWatch:
             reasons=[r for r in reasons if r.name in weights],
             rejections=rejections,
             confirmation=confirmation,
+            x_frac=float(region.cx) / max(width, 1),
+            aim_known=self.camera.aim_known,
         )
 
     def _reasons(self, growth: Growth, region: Region, height: int) -> list[Reason]:

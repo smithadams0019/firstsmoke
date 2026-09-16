@@ -259,6 +259,8 @@ class Lookout:
         confirm_at: float = CONFIRM_AT,
         max_consult_rounds: int = MAX_CONSULT_ROUNDS,
         on_event=None,
+        keep_watching: bool = False,
+        max_alerts: int = 8,
     ) -> None:
         self.source = source
         self.network = source.network
@@ -268,6 +270,15 @@ class Lookout:
         self.confirm_at = confirm_at
         self.max_consult_rounds = max_consult_rounds
         self.on_event = on_event
+        self.keep_watching = keep_watching
+        """Carry on after a flag instead of holding at it. A network holds, because
+        a person is about to look. A single uploaded clip has nobody coming, and
+        holding at a cloud in the third second means never reaching the smoke."""
+        self.max_alerts = max_alerts
+        self._flagged: dict[tuple[str, int], int] = {}
+        """Which tracks have already raised something, and how loudly: 1 for a
+        flag a person must settle, 2 for an assertion. A track is not raised
+        again at the same level, or one cloud would fill the list."""
         self.state = State.WATCH
         self.transitions: list[Transition] = []
         self.consultations: list[ConsultationRecord] = []
@@ -332,10 +343,27 @@ class Lookout:
             self._emit("tick", at=when.isoformat(), step=step, total=len(timeline),
                        state=self.state.value)
             alert = self.step(when)
+            if alert is not None and self.keep_watching and len(self.alerts) < self.max_alerts:
+                track = self._pursuing[1] if self._pursuing else -1
+                level = 2 if alert.confidence >= self.confirm_at else 1
+                self._flagged[(alert.origin_camera, track)] = level
+                self._go(State.WATCH, when, "kept_watching",
+                         "nobody else can settle this flag, so it stays open and the watch "
+                         "carries on through the rest of the footage")
+                self._rounds = 0
+                self._consulted.clear()
+                self._pursuing = None
+                continue
             if alert is not None:
                 return alert
             if self.state in TERMINAL:
                 break
+        if self.alerts and self.keep_watching:
+            count = len(self.alerts)
+            self._go(State.NEEDS_HUMAN, timeline[-1], "sequence_ended",
+                     f"the footage ended with {count} flag{'s' if count != 1 else ''} still open, "
+                     "and none of them can be settled from one camera")
+            return max(self.alerts, key=lambda a: a.confidence)
         if self.state not in TERMINAL:
             self._go(State.WATCH, timeline[-1], "sequence_ended",
                      "the recording ended with nothing that met the threshold")
@@ -344,6 +372,12 @@ class Lookout:
     def step(self, when: datetime) -> Alert | None:
         """One tick: sweep the watch set, then act on the strongest thing seen."""
         sweep = self._sweep(when)
+        if self._flagged:
+            sweep = [
+                d for d in sweep
+                if self._flagged.get((d.camera_id, d.track_id), 0)
+                < (2 if d.confidence >= self.confirm_at else 1)
+            ]
         if not sweep:
             return None
 
@@ -466,9 +500,14 @@ class Lookout:
         fresh = [c for c in candidates if c.camera.camera_id not in self._consulted]
 
         if not candidates:
-            return self._resolve_without_neighbours(
-                detection, when, "no camera overlooks that bearing"
-            )
+            if len(self.network) == 1 and not camera.position_known:
+                why = (
+                    "this footage comes from one camera whose position is not known, so no "
+                    "second view can cross it and no location on a map is possible"
+                )
+            else:
+                why = "no camera overlooks that bearing"
+            return self._resolve_without_neighbours(detection, when, why)
 
         self._go(
             State.CONSULT, when, "bearing_selected_cameras",
@@ -703,6 +742,8 @@ class Lookout:
         supposed to show a person *what* was unresolved showed them an empty
         sheet. One ray with no crossing is the honest picture."""
         camera = self.network.get(detection.camera_id)
+        if not (camera.position_known and camera.aim_known):
+            return []
         return [
             Ray(camera.camera_id, camera.lat, camera.lon, detection.bearing_deg,
                 detection.bearing_sigma_deg, camera.range_m)
@@ -775,7 +816,10 @@ class Lookout:
         camera = self.network.get(detection.camera_id)
         supporting = [c for c in self.consultations if c.outcome == "supported"]
 
-        if state is State.NEEDS_HUMAN:
+        if not camera.aim_known:
+            prefix = "Unresolved: possible smoke" if state is State.NEEDS_HUMAN else "Smoke"
+            headline = f"{prefix} {detection.where}, one camera, no location"
+        elif state is State.NEEDS_HUMAN:
             headline = (
                 f"Unresolved: possible smoke on bearing {detection.bearing_deg:.0f} from "
                 f"{camera.label}"

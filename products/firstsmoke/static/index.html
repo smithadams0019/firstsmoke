@@ -150,6 +150,38 @@
           <div class="scenarios" id="scenarios"></div>
         </section>
 
+        <section class="panel" id="upload-panel">
+          <div class="ph"><h2>Run your own footage</h2><span class="sub">one camera, real frames</span></div>
+          <form class="upload" id="upload-form" novalidate>
+            <div class="up-file">
+              <label for="up-files">Video, or several stills from one camera</label>
+              <input id="up-files" name="files" type="file" multiple
+                accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.m4v,.avi,.mkv,.webm,image/jpeg,image/png,image/webp,.zip">
+              <p class="up-help" id="up-picked">MP4 (H.264) decodes most reliably. A zip of stills works too.</p>
+            </div>
+            <div class="up-field">
+              <label for="up-interval">Seconds between frames</label>
+              <input id="up-interval" name="interval_s" type="number" min="0.01" max="86400" step="any" inputmode="decimal" placeholder="60">
+              <p class="up-help">Real time from one frame to the next. A lookout camera is 60. If you leave it empty, a video is taken as 1 s a frame and stills as 60 s, and the result says so.</p>
+            </div>
+            <div class="up-field">
+              <label for="up-bearing">Camera bearing, degrees <span>optional</span></label>
+              <input id="up-bearing" name="bearing_deg" type="number" min="0" max="360" step="any" inputmode="decimal">
+              <label for="up-hfov">Field of view, degrees <span>optional</span></label>
+              <input id="up-hfov" name="hfov_deg" type="number" min="1" max="180" step="any" inputmode="decimal">
+            </div>
+            <div class="up-go">
+              <button class="primary" id="up-run" type="submit" disabled>Watch this footage</button>
+              <p class="up-help">
+                Footage with no surveyed camera runs on one camera. Nothing can cross its
+                bearing, so the result is never a location, and a long clip is sampled and
+                reported as analysed X of Y frames.
+              </p>
+              <p class="up-error" id="up-error" role="alert" hidden></p>
+            </div>
+          </form>
+        </section>
+
         <section class="panel" id="wall-panel" hidden>
           <div class="ph"><h2>Camera wall</h2><span class="sub" id="wall-sub"></span></div>
           <div class="wall" id="wall"></div>

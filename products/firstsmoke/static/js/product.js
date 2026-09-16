@@ -22,6 +22,25 @@ const svg = (tag, attrs = {}, text) => {
   return node;
 };
 const clock = (iso) => (iso ? iso.slice(11, 19) : '—');
+const mmss = (seconds) => {
+  const total = Math.max(0, Math.round(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = String(total % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+};
+// An uploaded clip has no wall clock. Its frames are stamped from an arbitrary
+// start, so a time of day would be invented; what a person can use is how far
+// into the video to scrub, or how much real time had passed.
+function stamp(iso) {
+  const up = S.upload;
+  if (!up || !iso) return clock(iso);
+  const elapsed = (Date.parse(iso) - Date.parse(up.start)) / 1000;
+  if (up.kind === 'video' && up.fps > 0 && up.interval_s > 0) {
+    return `clip ${mmss(elapsed / up.interval_s / up.fps)}`;
+  }
+  return `+${mmss(elapsed)}`;
+}
 const km = (m) => `${(m / 1000).toFixed(1)} km`;
 
 const S = {
@@ -34,6 +53,8 @@ const S = {
   alert: null,
   summary: null,
   version: null,
+  upload: null,
+  uploading: false,
   startedAt: null,
   endedAt: null,
 };
@@ -109,10 +130,50 @@ function plate(canvas, x, y, id, subtitle, anchorLeft) {
   canvas.append(svg('text', { x: px + 11, y: py + 32, class: 'plate__bearing' }, subtitle));
 }
 
+function unplaced() {
+  // Footage from a camera nobody surveyed. Its coordinates are placeholders, and
+  // drawing them would put a marker in the sea off West Africa.
+  const all = cameras();
+  return S.uploading || (all.length === 1 && all[0].position_known === false);
+}
+
+function drawNoMap(host) {
+  host.querySelector('.map-note')?.setAttribute('hidden', '');
+  // In place of a map, the frame the watch was most sure about, so the panel
+  // shows what was actually seen rather than an empty sheet.
+  const best = [...S.evidence].sort((a, b) => (b.metrics?.confidence ?? 0) - (a.metrics?.confidence ?? 0))[0];
+  if (best?.uri) {
+    const fig = el('figure', 'nomap-frame');
+    const img = el('img');
+    img.src = best.uri;
+    img.alt = `The highest-scoring flagged frame: ${best.caption || ''}`;
+    fig.append(img, el('figcaption', '', `Highest-scoring flag, ${(best.metrics?.confidence ?? 0).toFixed(2)}`
+      + `${best.metrics?.at ? `, ${stamp(best.metrics.at)}` : ''}: ${best.caption || ''}`));
+    host.append(fig);
+  }
+  const box = el('div', 'nomap');
+  box.append(el('h3', '', 'No map for this footage'));
+  box.append(el('p', '', 'It comes from one camera whose position is not known. Firstsmoke '
+    + 'locates smoke by crossing bearings from two surveyed cameras, and there is no second view '
+    + 'here to cross, so no location is reported and none is guessed.'));
+  const code = el('p');
+  code.append(el('code', '', 'NO_SECOND_VIEW'),
+    document.createTextNode(' is the reason on every flag this footage raises.'));
+  box.append(code);
+  const aim = cameras()[0];
+  if (aim && aim.aim_known === false) {
+    box.append(el('p', '', 'No camera bearing was given either, so each flag is placed as a '
+      + 'share of the way across the frame rather than a compass bearing.'));
+  }
+  host.append(box);
+}
+
 function drawMap() {
   const host = $('map');
   if (!host || !S.network) return;
   for (const child of [...host.children]) if (child.tagName !== 'SPAN') child.remove();
+  if (unplaced()) { drawNoMap(host); return; }
+  host.querySelector('.map-note')?.removeAttribute('hidden');
 
   const alert = S.alert;
   const rays = alert ? alert.rays : [];
@@ -332,8 +393,8 @@ function drawTop() {
     const elapsed = S.endedAt ? Math.round((S.endedAt - S.startedAt) / 1000) : null;
     const last = S.transitions.at(-1);
     $('tb-times').innerHTML =
-      `Flag <b>${clock(S.transitions[0]?.at)}</b> → ${last ? last.to.replace(/_/g, ' ') : 'watching'} `
-      + `<b>${clock(last?.at)}</b>${elapsed !== null ? `, ${elapsed} s` : ''}`;
+      `Flag <b>${stamp(S.transitions[0]?.at)}</b> → ${last ? last.to.replace(/_/g, ' ') : 'watching'} `
+      + `<b>${stamp(last?.at)}</b>${elapsed !== null ? `, ${elapsed} s` : ''}`;
   }
   $('tb-raw').hidden = !S.evidence.length;
 }
@@ -350,9 +411,10 @@ function drawRail() {
   outcome.className = state === 'alerted' ? 'hot' : state === 'needs_human' ? 'refuse' : '';
   $('nav-map').textContent = String(cameras().length || '—');
   $('nav-wall').textContent = String(S.evidence.length || '—');
-  $('nav-detections').textContent = String(S.alert ? 1 : 0);
+  $('nav-detections').textContent = String(S.upload && S.summary ? (S.summary.alerts?.length ?? 0) : (S.alert ? 1 : 0));
   $('nav-timeline').textContent = String(S.transitions.length || '—');
   $('trail-panel').closest('.split')?.classList.toggle('is-alert', Boolean(S.alert));
+  $('split').classList.toggle('is-upload', Boolean(S.upload));
 }
 
 function drawKpis() {
@@ -364,12 +426,27 @@ function drawKpis() {
   const fix = alert && alert.fix ? alert.fix : null;
   const approach = alert && alert.fix_refusal ? alert.fix_refusal.nearest_approach : null;
 
+  if (S.upload) {
+    const up = S.upload;
+    const flags = S.summary.alerts?.length ?? 0;
+    const peak = flags ? Math.max(...S.summary.alerts.map((a) => a.confidence)) : null;
+    const spacing = up.spacing_s >= 90 ? `${(up.spacing_s / 60).toFixed(1)} min` : `${up.spacing_s.toFixed(up.spacing_s < 10 ? 1 : 0)} s`;
+    const cards = [
+      { k: 'Frames analysed', v: `${up.analysed_frames}`, unit: `of ${up.total_frames}`, n: up.capped ? 'cut short, the rest not read' : `${spacing} apart in real time` },
+      { k: 'Flags raised', v: String(flags), n: flags ? 'each left open for a person' : 'nothing grew like smoke', cls: flags ? 'refuse' : 'good' },
+      { k: 'Highest score', v: peak === null ? '—' : peak.toFixed(2), n: `of 1.00; ${S.summary.frames_read} reads` },
+      { k: 'Position', v: 'none', n: 'one camera, no known position', cls: 'refuse' },
+    ];
+    renderKpis(host, cards);
+    return;
+  }
+
   const cards = [
     { k: 'Cameras watched', v: String(S.summary.cameras), n: 'every one, every tick' },
     { k: 'Frames read', v: String(S.summary.frames_read), n: 'including the re-reads' },
     {
       k: 'Confidence', v: alert ? alert.confidence.toFixed(2) : '—',
-      n: alert ? 'of 1.00, after the rejectors' : 'nothing above 0.35',
+      n: alert ? 'of 1.00, after the rejectors' : `nothing above ${threshold()}`,
       cls: alert ? 'hot' : '',
     },
   ];
@@ -386,7 +463,15 @@ function drawKpis() {
   } else {
     cards.push({ k: 'Unusable cameras', v: String(S.summary.unusable.length), n: 'named, with the fault' });
   }
+  renderKpis(host, cards);
+}
 
+function threshold() {
+  const param = (S.config?.params ?? []).find((p) => p.name === 'threshold');
+  return param && typeof param.default === 'number' ? param.default.toFixed(2) : 'the threshold';
+}
+
+function renderKpis(host, cards) {
   for (const card of cards) {
     const node = el('div', `kpi ${card.cls ?? ''}`.trim());
     node.append(el('div', 'k', card.k));
@@ -407,6 +492,7 @@ function drawCallout() {
   actions.replaceChildren();
 
   const alert = S.alert;
+  if (S.upload && S.summary) { drawUploadCallout(box, heading, text); return; }
   if (!alert) {
     box.dataset.tone = 'plain';
     heading.textContent = S.running ? 'The watch is running' : 'Nothing is being watched yet';
@@ -440,6 +526,33 @@ function drawCallout() {
   text.append(list);
 }
 
+function drawUploadCallout(box, heading, text) {
+  const up = S.upload;
+  const alerts = S.summary.alerts ?? [];
+  text.replaceChildren();
+  const list = el('ul', 'why');
+  if (!alerts.length) {
+    box.dataset.tone = 'plain';
+    heading.textContent = 'Nothing on this footage grew like smoke';
+    list.append(el('li', '', `Firstsmoke ${up.coverage} and raised no flag.`));
+  } else {
+    box.dataset.tone = 'refuse';
+    heading.textContent = `${alerts.length} flag${alerts.length === 1 ? '' : 's'} a person must settle: NO_SECOND_VIEW`;
+    list.append(el('li', '', tidy(`Firstsmoke ${up.coverage}`)));
+    list.append(el('li', '', 'One camera with no known position cannot be corroborated, so every '
+      + 'flag stays open and no location is given.'));
+  }
+  for (const note of up.notes.filter((n) => /assumed|cut after|stopped at/.test(n))) list.append(el('li', '', tidy(note)));
+  text.append(list);
+  if (alerts.length) {
+    const flags = el('ul', 'flags');
+    for (const a of alerts) {
+      flags.append(el('li', '', `${stamp(a.raised_at)}  ${a.confidence.toFixed(2)}  ${(a.headline.match(/\d+% across/) ?? ['?'])[0]}${a.state === 'alerted' ? '  column' : ''}`));
+    }
+    text.append(flags);
+  }
+}
+
 function tidy(line) {
   const trimmed = line.trim();
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
@@ -459,8 +572,11 @@ function drawTrail() {
   const held = $('held');
 
   const steps = [];
+  // On uploaded footage every flag is followed by the same two steps, the
+  // refusal and the decision to keep going. The callout already says both once.
+  const quiet = S.upload ? ['alert_raised', 'no_second_view', 'kept_watching'] : ['alert_raised'];
   for (const transition of S.transitions) {
-    if (transition.trigger === 'alert_raised') continue;
+    if (quiet.includes(transition.trigger)) continue;
     let detail = transition.detail;
     if (transition.trigger === 'bearing_selected_cameras') {
       // The spec asks for the actual rule that selected each camera, not a
@@ -491,14 +607,18 @@ function drawTrail() {
     row.append(el('div', 't', String(index + 1)));
     const body = el('div');
     const head = el('div', 'h');
-    head.append(el('time', '', clock(step.at)), document.createTextNode(step.head));
+    head.append(el('time', '', stamp(step.at)), document.createTextNode(step.head));
     body.append(head, el('div', 'd', step.detail));
     row.append(body);
     host.append(row);
   });
 
   $('trail-sub').textContent = `${steps.length} steps`;
-  if (S.alert) {
+  if (S.upload && S.summary) {
+    held.hidden = false;
+    held.innerHTML = '<b>Nothing was sent.</b> Uploaded footage has no neighbours to ask, so the '
+      + 'watch notes each flag, keeps reading, and leaves every one for a person.';
+  } else if (S.alert) {
     held.hidden = false;
     held.innerHTML = S.alert.state === 'alerted'
       ? '<b>Next: a human decides.</b> The watch holds at the escalation card. It does not '
@@ -516,6 +636,7 @@ function drawTrail() {
 
 const HEADLINES = {
   weak_detection: 'Flagged a weak change',
+  kept_watching: 'Left it open and kept watching',
   re_examined: 'Re-read its own recent frames',
   bearing_selected_cameras: 'Chose cameras from the bearing',
   crossed_bearings: 'Crossing found',
@@ -566,12 +687,13 @@ function drawWall() {
     tile.append(el('span', 'st', usable ? `${(item.metrics?.confidence ?? 0).toFixed(2)}` : (item.metrics?.usability ?? 'unusable')));
     const lab = el('div', 'lab');
     lab.append(el('div', 'nm', item.label));
-    lab.append(el('div', 'nums', `${camera ? camera.camera_id : ''} · frame ${item.frame_index ?? '—'}`));
+    const where = item.metrics?.at ? `flag ${item.metrics.flag} · ${stamp(item.metrics.at)}` : `frame ${item.frame_index ?? '—'}`;
+    lab.append(el('div', 'nums', `${camera ? camera.camera_id : ''} · ${where}`));
     lab.append(el('div', 'why', consultation ? consultation.answer : (item.caption || '')));
     tile.append(lab);
     host.append(tile);
   }
-  $('wall-sub').textContent = `${S.evidence.length} cameras`;
+  $('wall-sub').textContent = S.upload ? `${S.evidence.length} flagged frames` : `${S.evidence.length} cameras`;
 }
 
 function drawTimeline() {
@@ -592,7 +714,7 @@ function drawTimeline() {
   const body = el('tbody');
   for (const transition of S.transitions) {
     const row = el('tr');
-    row.append(el('td', 'mono', clock(transition.at)));
+    row.append(el('td', 'mono', stamp(transition.at)));
     const state = el('td');
     const tone = transition.to === 'alerted' || transition.to === 'confirmed' ? 'hot'
       : transition.to === 'needs_human' ? 'refuse'
@@ -644,7 +766,7 @@ function redraw() {
 function reset(scenario) {
   S.scenario = scenario ?? null;
   S.transitions = []; S.consultations = []; S.evidence = [];
-  S.alert = null; S.summary = null;
+  S.alert = null; S.summary = null; S.upload = null;
   S.startedAt = Date.now(); S.endedAt = null;
   $('split').hidden = false;
   if (scenario) {
@@ -652,6 +774,7 @@ function reset(scenario) {
     $('page-sub').textContent = scenario.blurb + ' ' + scenario.expect;
   }
   redraw();
+  $('split').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function runScenario(scenario, button) {
@@ -678,15 +801,18 @@ async function runScenario(scenario, button) {
 
 function finished() {
   S.running = false;
+  S.uploading = false;
   S.endedAt = Date.now();
   for (const node of document.querySelectorAll('.scenario')) node.disabled = false;
   $('run-default').disabled = false;
+  $('up-run').disabled = !$('up-files').files.length;
 }
 
 function follow(jobId) {
   api.events(jobId, {
     progress: (event) => { $('rf-meter').style.width = `${event.percent ?? 0}%`; },
     note: (event) => {
+      if (event.upload) S.upload = event.upload;
       if (event.transition) S.transitions.push(event.transition);
       if (event.consultation) S.consultations.push(event.consultation);
       redraw();
@@ -698,8 +824,12 @@ function follow(jobId) {
       try {
         const job = await api.job(jobId);
         const record = job.result;
-        if (job.error) $('callout-text').replaceChildren(document.createTextNode(job.error.message));
+        if (job.error) {
+          $('callout-text').replaceChildren(document.createTextNode(job.error.message));
+          if (S.scenario && !S.scenario.name) uploadError(job.error.message);
+        }
         if (record) {
+          S.upload = record.input?.upload ?? null;
           S.evidence = record.evidence ?? [];
           const summary = (record.results ?? []).find((r) => r && r.transitions);
           if (summary) {
@@ -712,6 +842,86 @@ function follow(jobId) {
       } catch { /* the job endpoint already reports its own errors */ }
       redraw();
     },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════ own footage ══
+
+const STILL = /\.(jpe?g|png|webp|bmp|tiff?)$/i;
+
+function uploadParams() {
+  const params = {};
+  for (const name of ['interval_s', 'bearing_deg', 'hfov_deg']) {
+    const input = document.querySelector(`#upload-form [name="${name}"]`);
+    if (input.value.trim() !== '') params[name] = Number(input.value);
+  }
+  return params;
+}
+
+function uploadError(message) {
+  const box = $('up-error');
+  box.hidden = !message;
+  box.textContent = message ?? '';
+}
+
+async function startUpload(files) {
+  const params = uploadParams();
+  for (const [name, value] of Object.entries(params)) {
+    if (!Number.isFinite(value)) throw new Error(`${name.replace(/_/g, ' ')} must be a number`);
+  }
+  if (files.length === 1) return api.submit(files[0], params);
+  if (![...files].every((f) => STILL.test(f.name))) {
+    throw new Error('Choose one video, one zip, or several stills, not a mixture.');
+  }
+  const body = new FormData();
+  for (const file of files) body.append('files', file);
+  body.append('params', JSON.stringify(params));
+  const response = await fetch('/api/stills', { method: 'POST', body });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new ApiError(payload.error ?? {}, response.status);
+  return payload;
+}
+
+function initUpload() {
+  const input = $('up-files');
+  const run = $('up-run');
+  input.addEventListener('change', () => {
+    const files = [...input.files];
+    run.disabled = S.running || !files.length;
+    uploadError(null);
+    const size = files.reduce((n, f) => n + f.size, 0) / (1024 * 1024);
+    $('up-picked').textContent = !files.length
+      ? 'MP4 (H.264) decodes most reliably. A zip of stills works too.'
+      : files.length === 1 ? `${files[0].name}, ${size.toFixed(1)} MB`
+        : `${files.length} stills, ${size.toFixed(1)} MB`;
+  });
+  $('upload-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const files = [...input.files];
+    if (S.running || !files.length) return;
+    uploadError(null);
+    S.running = true;
+    run.disabled = true;
+    for (const node of document.querySelectorAll('.scenario')) node.disabled = true;
+    $('run-default').disabled = true;
+    const title = files.length === 1 ? files[0].name : `${files.length} stills`;
+    reset({
+      title,
+      blurb: 'Your footage, watched by one camera with no known position.',
+      expect: 'Flags are left open for a person; no location can be given.',
+    });
+    S.uploading = true;
+    for (const node of document.querySelectorAll('.scenario')) node.setAttribute('aria-pressed', 'false');
+    $('rf-meter').style.width = '2%';
+    redraw();
+    try {
+      const job = await startUpload(files);
+      follow(job.job_id);
+    } catch (error) {
+      finished();
+      uploadError(error.message ?? String(error));
+      redraw();
+    }
   });
 }
 
@@ -738,14 +948,17 @@ function initTheme() {
 (async function boot() {
   initTheme();
   drawMethod();
+  initUpload();
   try {
-    const [network, scenarios, version] = await Promise.all([
+    const [network, scenarios, version, config] = await Promise.all([
       fetch('/api/network').then((r) => r.json()),
       fetch('/api/scenarios').then((r) => r.json()),
       api.version(),
+      api.config(),
     ]);
     S.network = network;
     S.version = version;
+    S.config = config;
     const attribution = $('attribution');
     if (attribution && network.attribution) attribution.textContent = network.attribution;
 

@@ -57,6 +57,12 @@ class Camera:
     range_m: float = DEFAULT_RANGE_M
     still_url: str | None = None
     """Where a live still comes from. ``None`` means this camera is replay-only."""
+    position_known: bool = True
+    """False for footage someone uploaded from a camera nobody has surveyed. The
+    latitude and longitude are then placeholders and must never reach a map."""
+    aim_known: bool = True
+    """False when nobody told us which way the camera faces. A bearing computed
+    from a guessed azimuth is a number with nothing behind it, so it is not shown."""
 
     @property
     def has_colour(self) -> bool:
@@ -64,6 +70,8 @@ class Camera:
 
     @property
     def label(self) -> str:
+        if not self.aim_known:
+            return self.site_name
         cardinal = _cardinal(self.azimuth_deg)
         return f"{self.site_name} {cardinal}"
 
@@ -81,6 +89,8 @@ class Camera:
             "imager": self.imager,
             "active": self.active,
             "range_m": self.range_m,
+            "position_known": self.position_known,
+            "aim_known": self.aim_known,
         }
 
 
@@ -267,6 +277,8 @@ class Network:
                 active=bool(c.get("active", True)),
                 range_m=float(c.get("range_m", DEFAULT_RANGE_M)),
                 still_url=c.get("still_url"),
+                position_known=bool(c.get("position_known", True)),
+                aim_known=bool(c.get("aim_known", True)),
             )
             for c in data["cameras"]
         ]
