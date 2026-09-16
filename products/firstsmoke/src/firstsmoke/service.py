@@ -36,7 +36,7 @@ from .agent import Lookout, ReplaySource, State
 from .calibration import CalibrationSet
 from .candidates import draw_horizon, draw_regions
 from .confirm import load_confirmer
-from .detector import CameraReading
+from .detector import CONFIRM_AT, SUSPECT_AT, CameraReading
 from .evaluate import default_network
 from .frames import Incident, load_bundle
 from .paths import calibration_file, scenario_dir, static_dir
@@ -79,6 +79,15 @@ def _overlay(reading: CameraReading, ctx: JobContext, label: str) -> str | None:
     return ctx.save_evidence(f"{label}.jpg", buf.tobytes())
 
 
+def _threshold(value: Any) -> float:
+    """The suspicion threshold a caller asked for, or the shipped one."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return SUSPECT_AT
+    return min(max(number, 0.1), CONFIRM_AT - 0.01)
+
+
 def analyze(ctx: JobContext) -> RunRecord:
     """Run the escalation loop over an uploaded or bundled incident."""
     record = ctx.record
@@ -96,7 +105,7 @@ def analyze(ctx: JobContext) -> RunRecord:
             "attribution": incident.network.attribution,
         }
     )
-    record.params.setdefault("threshold", ctx.params.get("threshold"))
+    record.params["threshold"] = _threshold(ctx.params.get("threshold"))
 
     confirmer = load_confirmer()
     if confirmer is None:
@@ -140,7 +149,7 @@ def analyze(ctx: JobContext) -> RunRecord:
         )
     lookout = Lookout(
         ReplaySource(incident), confirmer=confirmer, calibrations=calibrations,
-        on_event=on_event,
+        on_event=on_event, suspect_at=_threshold(ctx.params.get("threshold")),
     )
     alert = lookout.run()
 
@@ -228,12 +237,13 @@ def build_config() -> ServiceConfig:
                 "name": "threshold",
                 "type": "number",
                 "label": "Suspicion threshold",
-                "default": 0.35,
+                "default": SUSPECT_AT,
                 "min": 0.1,
                 "max": 0.9,
                 "step": 0.05,
                 "help": (
-                    "Below this a camera stays quiet. Between this and 0.68 it consults."
+                    "Below this a camera stays quiet. "
+                    f"Between this and {CONFIRM_AT:.2f} it consults."
                 ),
             }
         ],
