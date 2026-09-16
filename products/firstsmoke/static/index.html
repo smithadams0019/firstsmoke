@@ -164,12 +164,6 @@
               <input id="up-interval" name="interval_s" type="number" min="0.01" max="86400" step="any" inputmode="decimal" placeholder="60">
               <p class="up-help">Real time from one frame to the next. A lookout camera is 60. If you leave it empty, a video is taken as 1 s a frame and stills as 60 s, and the result says so.</p>
             </div>
-            <div class="up-field">
-              <label for="up-bearing">Camera bearing, degrees <span>optional</span></label>
-              <input id="up-bearing" name="bearing_deg" type="number" min="0" max="360" step="any" inputmode="decimal">
-              <label for="up-hfov">Field of view, degrees <span>optional</span></label>
-              <input id="up-hfov" name="hfov_deg" type="number" min="1" max="180" step="any" inputmode="decimal">
-            </div>
             <div class="up-go">
               <button class="primary" id="up-run" type="submit" disabled>Watch this footage</button>
               <p class="up-help">

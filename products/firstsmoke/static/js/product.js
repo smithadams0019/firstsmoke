@@ -160,11 +160,8 @@ function drawNoMap(host) {
   code.append(el('code', '', 'NO_SECOND_VIEW'),
     document.createTextNode(' is the reason on every flag this footage raises.'));
   box.append(code);
-  const aim = cameras()[0];
-  if (aim && aim.aim_known === false) {
-    box.append(el('p', '', 'No camera bearing was given either, so each flag is placed as a '
-      + 'share of the way across the frame rather than a compass bearing.'));
-  }
+  box.append(el('p', '', 'Each flag is placed as a share of the way across the frame, because '
+    + 'nothing says which way this camera faces.'));
   host.append(box);
 }
 
@@ -851,7 +848,7 @@ const STILL = /\.(jpe?g|png|webp|bmp|tiff?)$/i;
 
 function uploadParams() {
   const params = {};
-  for (const name of ['interval_s', 'bearing_deg', 'hfov_deg']) {
+  for (const name of ['interval_s']) {
     const input = document.querySelector(`#upload-form [name="${name}"]`);
     if (input.value.trim() !== '') params[name] = Number(input.value);
   }
