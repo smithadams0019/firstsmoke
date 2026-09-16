@@ -37,7 +37,7 @@ class TestLetterbox:
 
 class TestGrids:
     def test_anchor_count_matches_the_measured_yolox_tiny_output(self):
-        """FINDINGS 1.4 measured out=(1, 3549, 85) at 416x416: 52^2 + 26^2 + 13^2."""
+        """measured out=(1, 3549, 85) at 416x416: 52^2 + 26^2 + 13^2."""
         grid, strides = models.yolox_grids((416, 416))
         assert grid.shape == (1, 3549, 2)
         assert strides.shape == (1, 3549, 1)

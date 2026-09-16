@@ -57,7 +57,7 @@ class TestKnownWidthByConstruction:
 
 
 class TestTheThreeHundredAndEightyTimesBug:
-    """FINDINGS.md 5.0: filling an open polyline reported 283 mm for a 0.75 mm crack.
+    """filling an open polyline reported 283 mm for a 0.75 mm crack.
 
     A crack detector hands you a *path*: an open polyline of points along the
     crack. Filling that path closes it into a polygon and the distance transform

@@ -2,7 +2,7 @@
 
 Why this module is paranoid
 ---------------------------
-Research (`research/FINDINGS.md` §5.0) recorded a 380x measurement error: a
+Research recorded a 380x measurement error: a
 crack-width routine filled an open contour and took `max(distanceTransform)`,
 reporting 283 mm for a 0.75 mm crack. The number looked plausible. Nothing
 crashed. That is the failure mode this module exists to prevent.

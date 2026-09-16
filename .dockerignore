@@ -8,6 +8,5 @@ node_modules
 products/*/data/source
 products/*/data/demo
 products/*/eval/results
-docs/mockups
 research
 bench

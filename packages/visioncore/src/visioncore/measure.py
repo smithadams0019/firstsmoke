@@ -1,6 +1,6 @@
 """Stroke-width measurement done the way that does not produce 380x errors.
 
-The failure recorded in `research/FINDINGS.md` §5.0: fill an open contour with
+A failure we hit early: fill an open contour with
 `drawContours(..., -1)` and take `max(distanceTransform)`. On an open polyline
 the fill covers the hull, the distance transform peaks in the middle of that
 hull, and a 0.75 mm crack reports as 283 mm. No exception, no warning.

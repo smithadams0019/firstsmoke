@@ -9,7 +9,7 @@ OpenCV 5 notes that shape this module:
   * `readNetFromCaffe` / `readNetFromDarknet` are gone. ONNX only.
   * `readNetFromONNX(path, engine=...)` selects the graph engine.
     ENGINE_NEW measured ~1.5x faster than ENGINE_CLASSIC on YOLOX-tiny
-    (13.8 ms vs 21.0 ms/inference, x86, 22 threads) -- FINDINGS.md §1.4.
+    (13.8 ms vs 21.0 ms/inference, x86, 22 threads)
   * The PyPI wheel is built with `ONNX Runtime: NO`, so `ENGINE_ORT` exists as a
     constant but has no backend. Asking for it raises here rather than silently
     falling back.

@@ -9,7 +9,7 @@ set -euo pipefail
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 export AWS_DEFAULT_REGION="$AWS_REGION"
 readonly PROJECT_TAG="opencv26"
-readonly EXPECTED_ACCOUNT="<aws-account-id>"
+readonly EXPECTED_ACCOUNT="${EXPECTED_ACCOUNT:?set EXPECTED_ACCOUNT to your AWS account id}"
 
 # Nothing larger than this launches without being asked for explicitly.
 readonly MAX_INSTANCE_DEFAULT="c8g.large"

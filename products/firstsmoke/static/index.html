@@ -4,10 +4,10 @@
 
   servicekit supports a product supplying its own index.html in its static
   directory, and this product uses that rather than the default shell markup.
-  The reason is in docs/design/atlas.md: the design for this product is a fixed
+  The reason: the design for this product is a fixed
   252 px rail with a map as the document, and the shell's markup is a masthead
   with stacked panels. Token overrides cannot turn one into the other. Every
-  colour, every type size and every screen id here comes from the atlas, and the
+  colour, every type size and every screen id here comes from the design spec, and the
   API layer is still the shell's (/shell/js/api.js), so there is one HTTP client
   and one job lifecycle across all five entries.
 -->

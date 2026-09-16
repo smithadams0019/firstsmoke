@@ -184,8 +184,6 @@ docker run --rm -p 8098:8080 firstsmoke:local
 | [docs/evaluation.md](docs/evaluation.md) | the numbers, the failure cases, and what the evaluation does not establish |
 | [docs/architecture.md](docs/architecture.md) | Mermaid diagrams of the pipeline, the agent loop and the AWS components |
 | [docs/costs.md](docs/costs.md) | what is running on AWS and what it costs |
-| [docs/devpost.md](docs/devpost.md) | the submission text |
-| [docs/narration.md](docs/narration.md) | the video script |
 | [docs/screens/](docs/screens/) | screenshots taken from the running service, not from a mockup |
 
 ## Layout

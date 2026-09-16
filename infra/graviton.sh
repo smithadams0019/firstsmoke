@@ -16,7 +16,7 @@
 #
 # Defaults are deliberately small. **t4g.small is free until 31 December 2026**
 # (750 hrs/month aggregated across regions, all customers, existing accounts
-# included) - research/FINDINGS.md 3.1. That is one free always-on box for the
+# included) That is one free always-on box for the
 # whole account, not one per product.
 #
 # COOL cannot run on t4g: it is a Marketplace AMI whose software fees are not

@@ -34,6 +34,6 @@ def test_environment_is_serialisable_and_complete():
 def test_cpu_features_reports_the_hal_that_decides_benchmark_meaning():
     cpu = v.cpu_features()
     # On aarch64 this must be True: the stock PyPI wheel already ships KleidiCV,
-    # which is exactly the trap in the COOL benchmark (FINDINGS.md 2.3).
+    # which is exactly the trap in the COOL benchmark.
     assert isinstance(cpu["kleidicv"], bool)
     assert "custom_hal" in cpu or "baseline" in cpu

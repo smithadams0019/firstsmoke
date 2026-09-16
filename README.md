@@ -20,7 +20,6 @@ OpenCV 5.0.0, pinned.
 | [products/firstsmoke/docs/evaluation.md](products/firstsmoke/docs/evaluation.md) | the numbers, and the failure cases |
 | [products/firstsmoke/docs/architecture.md](products/firstsmoke/docs/architecture.md) | diagrams of the pipeline, the agent loop and the AWS components |
 | [products/firstsmoke/docs/costs.md](products/firstsmoke/docs/costs.md) | what is running on AWS and what it costs |
-| [products/firstsmoke/docs/devpost.md](products/firstsmoke/docs/devpost.md) | the submission text |
 
 ## Why the repository has this shape
 
