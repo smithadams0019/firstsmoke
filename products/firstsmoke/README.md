@@ -40,13 +40,14 @@ blind camera's silence is never counted as evidence of an empty hillside.
 ## Honest summary of the results
 
 On 64 recorded sequences from 44 real HPWREN cameras, at the shipped operating
-point: **90.5% of fires detected, a median of 60 seconds after the human who
-labelled them, and 487 false positives per camera-day.** The second number is
-far too high to deploy. Requiring a second camera to agree cuts it by 60% and
-costs 24 points of detection. On recorded data the crossing is refused more
-often than it succeeds, and the system says so rather than guessing; on
-synthetic incidents where we placed the fire ourselves, the fix lands 13 m from
-the truth.
+point (a per-camera nuisance map, threshold 0.45): **with a second camera
+required to agree, 42% of fires at 21.7 false alarms per camera-day; on one
+camera, 79% at 150, a median of 7.3 minutes after the human who labelled them.**
+Before calibration it was 90.5% at 487. Neither is deployable. Those numbers
+come from the set the threshold was chosen on; a frozen 130-sequence test set is
+not yet scored. Triangulation on real data is not useful yet: refused on six of
+eight dates, and 7.4 km of spread where it crossed. On synthetic incidents where
+we placed the fire ourselves, the fix lands 13 m from the truth.
 
 Full numbers, failure cases and what they mean: **[docs/evaluation.md](docs/evaluation.md)**.
 
@@ -86,13 +87,17 @@ FIRSTSMOKE_SCENARIOS=$PWD/products/firstsmoke/data/scenarios \
   .venv/bin/python -m uvicorn firstsmoke.service:app --port 8099
 ```
 
-Open http://127.0.0.1:8099 and press one of the four incidents.
+Open http://127.0.0.1:8099 and press one of the four incidents, or upload a
+video or stills from one camera under "Run your own footage". An upload has no
+surveyed camera, so it runs on one camera, keeps watching after each flag, and
+reports every flag with `NO_SECOND_VIEW` and no location. A long clip is sampled
+to about one frame a minute of real time and the result says "analysed X of Y".
 
 ### Test
 
 ```bash
 # if you installed without [dev]: uv pip install --python .venv/bin/python pytest==9.1.1 ruff==0.16.7
-.venv/bin/python -m pytest products/firstsmoke/tests -q          # 173 tests
+.venv/bin/python -m pytest products/firstsmoke/tests -q          # 196 tests
 .venv/bin/python -m pytest products/firstsmoke/tests -q -m "not slow"   # skip the agent runs
 .venv/bin/ruff check products/firstsmoke
 ```
@@ -107,7 +112,9 @@ recovers the position to within 600 m without ever being told it.
 cd products/firstsmoke
 python scripts/fetch_figlib.py     # ~5,000 frames from HPWREN, 770 MB, ~25 min
 python scripts/train_confirmer.py  # optional ONNX confirmer, ~5 min, numpy only
-python scripts/evaluate.py         # ~12 min, writes docs/evaluation.json
+python scripts/evaluate.py         # ~40 min, baseline and calibration variants
+python scripts/fetch_figlib.py $(cat data/figlib_test_sequences.txt)   # the frozen test set
+python scripts/evaluate.py --test data/figlib_test_sequences.txt
 ```
 
 `fetch_figlib.py` caches outside the repository. HPWREN imagery is CC BY-NC-ND
@@ -163,6 +170,8 @@ src/firstsmoke/
   geometry.py     bearings, ray crossing, uncertainty, nearest approach
   cameras.py      the network, and which cameras overlook a given bearing
   frames.py       sequences, incident bundles, video and directory inputs
+  uploads.py      one-camera footage, decoded on demand
+  calibration.py  per-camera nuisance maps from clear frames on other dates
   scene.py        horizon finding, usability verdicts, shake correction
   background.py   per-camera background modelling with time-of-day handling
   candidates.py   change map to measured regions

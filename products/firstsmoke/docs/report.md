@@ -268,7 +268,7 @@ unsupported properties rather than 0, so the frame-rate fallback tests `<= 0`.
 The qualifying bar is that image results must change what the system does next.
 Here is precisely where that happens.
 
-When a camera produces a detection between 0.35 and 0.68, the **pixel column of
+When a camera produces a detection between 0.45 and 0.68, the **pixel column of
 that detection** is converted to a bearing through the camera's azimuth and field
 of view, using the pinhole relation `tan θ = (2x/w − 1)·tan(hfov/2)`, or an
 equiangular one above 120°, because seven cameras in the published metadata
@@ -334,39 +334,49 @@ access beyond the browser.
 Summarised here; the full document with every failure case is
 **[evaluation.md](evaluation.md)**.
 
-On 64 recorded FIgLib sequences, 4,959 frames, 44 real cameras, at a per-camera
-confidence of 0.35:
+On 64 recorded FIgLib sequences, 4,959 frames, 44 real cameras. The shipped
+configuration is a per-camera nuisance map learnt from each camera's clear frames
+on other dates, and a suspicion threshold of 0.45, both chosen on the
+detection-versus-false-positive curve (evaluation §3):
 
-| | |
-|---|---|
-| Fires detected | 57 of 63 with a usable view, **90.5%** |
-| Median time to alert | **+60 s** after the human's mark |
-| Detected before the human | **0 of 57** |
-| False positives | **487 per camera-day** |
-| Processing | **128 ms a frame**, median |
+| | Before: 0.35, uncalibrated | Shipped: 0.45, map |
+|---|---|---|
+| One camera: fires detected | 90.5% | **79.4%** |
+| One camera: false positives per camera-day | 485 | **150** |
+| One camera: median time to alert | +60 s | **+438 s** |
+| Second camera required: detected | 63.6% | **42.4%** |
+| Second camera required: false positives per camera-day | 199.5 | **21.7** |
+| Detected before the human's mark | 0 | 0 |
 
-Requiring a second camera to agree cuts false positives from 507 to 202 per
-camera-day at the same threshold, and costs 24 points of detection.
+A confidence ceiling per camera was also tried and rejected: it cut false
+positives at a fixed threshold, but along the curve it did no better than
+raising the threshold, and it lost six fires outright rather than late.
 
-On recorded data the crossing was refused on six of eight multi-summit dates and
-succeeded on two; two independent pairs landed a median of 6.9 km apart. On
-synthetic incidents where we placed the fire, the fix lands **13 m** from the
-truth inside a reported 161 m ellipse. The geometry is right; the input bearings
-on real data are not yet clean enough to use it, because at 487 false positives a
-camera-day the first threshold crossing is frequently not the fire.
+These numbers are on the set the threshold was chosen on, so they are
+optimistic. A 130-sequence test set was frozen before download and is not yet
+scored. The +438 s is measured against an annotator who reviewed each sequence
+in hindsight, and published detectors on the same library report means of 2.3
+to 4.7 minutes, faster than our median of 7.3.
+
+**Triangulation is not useful on real data yet.** The crossing was refused on
+six of eight multi-summit dates, and where two pairs could both be crossed the
+fixes landed a median of 7.4 km apart. On synthetic incidents where we placed
+the fire, the fix lands **13 m** from the truth inside a reported 161 m ellipse,
+so the geometry is right and the input bearings are not.
 
 ## 8. Limitations
 
-1. **The false-positive rate is not deployable.** Several hundred per camera-day
-   at a useful detection rate. On eight of 44 cameras the highest-confidence
-   candidate in the entire sequence occurs on a frame labelled clear, meaning the
-   detector locked onto a persistent non-smoke feature that passes every named
-   rejector. We did not identify what those features physically are.
+1. **It is not deployable.** Requiring a second camera gets false alarms to 21.7
+   a camera-day but finds only 42% of fires; one camera finds 79% at 150 a
+   camera-day. The persistent false positives on particular views are only partly
+   caught by the learnt nuisance map, and we did not identify what they
+   physically are.
 2. **We never beat the human annotator.** A structural two-to-four-minute lag is
    built into requiring growth before speaking. This must not be sold as early
    detection.
-3. **Recorded triangulation mostly refuses.** See section 7. It refuses rather
-   than guessing, which is the correct failure, but it is a refusal.
+3. **Triangulation is not useful on real data yet.** Six of eight refused, and a
+   7.4 km spread where it did cross. It refuses rather than guessing, which is
+   the correct failure, but it is a failure.
 4. **A re-aimed camera silently invalidates its bearings.** The published azimuth
    is wrong until the metadata is refreshed. Today the only mitigation is that a
    re-aimed camera stops agreeing with its neighbours and so produces stand-downs
