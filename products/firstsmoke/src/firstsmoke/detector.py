@@ -217,12 +217,17 @@ class CameraWatch:
         *,
         confirmer: SmokeConfirmer | None = None,
         calibration: CameraCalibration | None = None,
+        keep_readings: bool = True,
         minimum_frames: int = MINIMUM_FRAMES,
         suspect_at: float = SUSPECT_AT,
         confirm_at: float = CONFIRM_AT,
     ) -> None:
         self.camera = camera
         self.calibration = calibration
+        self.keep_readings = keep_readings
+        """Keep every reading, masks and all, for the interface's history. The
+        evaluation turns this off: twelve full-frame masks a frame over eighty
+        frames is most of a gigabyte it never reads."""
         self.background = BackgroundModel(camera.camera_id)
         self.tracker = Tracker(camera.camera_id)
         self.confirmer = confirmer
@@ -266,7 +271,8 @@ class CameraWatch:
                 warmed=self.background.warmed,
                 ms=_ms_since(start),
             )
-            self._readings.append(reading)
+            if self.keep_readings:
+                self._readings.append(reading)
             return reading
 
         self._contrasts.append(scene.contrast)
@@ -287,7 +293,8 @@ class CameraWatch:
                 warmed=False,
                 ms=_ms_since(start),
             )
-            self._readings.append(reading)
+            if self.keep_readings:
+                self._readings.append(reading)
             return reading
 
         reference = self.background.reference_for(frame.hour_utc)
@@ -328,7 +335,8 @@ class CameraWatch:
             warmed=True,
             ms=_ms_since(start),
         )
-        self._readings.append(reading)
+        if self.keep_readings:
+            self._readings.append(reading)
         return reading
 
     # -- scoring -------------------------------------------------------------

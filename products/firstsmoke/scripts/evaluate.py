@@ -94,7 +94,9 @@ def main(argv: list[str] | None = None) -> int:
     payload["calibration"] = sets[chosen].summary()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2))
-    sets[chosen].save(args.out.parent / "calibration.json")
+    # The held-out fits, kept for inspection. The deployed calibration is fitted
+    # from all history by scripts/fit_calibration.py and written elsewhere.
+    sets[chosen].save(args.out.parent / "calibration-holdout.json")
 
     print(f"\n{len(evaluation.results)} sequences, {1 + len(variants)} passes, in {elapsed:.0f} s")
     print("\n" + SELECTION_RULE)

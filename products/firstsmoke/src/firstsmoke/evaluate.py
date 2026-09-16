@@ -222,7 +222,9 @@ def run_sequence(
     dates. The harness enforces that; nothing here checks it, so if you call
     this directly, check it yourself.
     """
-    watch = CameraWatch(sequence.camera, confirmer=confirmer, calibration=calibration)
+    watch = CameraWatch(
+        sequence.camera, confirmer=confirmer, calibration=calibration, keep_readings=False
+    )
     first_alert: int | None = None
     peak = 0.0
     peak_negative = 0.0
@@ -556,6 +558,35 @@ class Evaluation:
         }
 
 
+MEMORY_LIMIT_BYTES = 4 * 1024**3
+"""Resident memory above which the evaluation stops rather than pushing the
+machine into swap. One sequence of decoded frames is about 200 MB, so a healthy
+run stays well under a gigabyte; crossing four means something is being held that
+should not be."""
+
+
+class MemoryLimitExceeded(RuntimeError):
+    pass
+
+
+def check_memory(limit: int = MEMORY_LIMIT_BYTES) -> int:
+    """Stop the run if resident memory passes the limit. Returns bytes in use."""
+    try:
+        with open("/proc/self/statm") as handle:
+            pages = int(handle.read().split()[1])
+        import os
+
+        rss = pages * os.sysconf("SC_PAGE_SIZE")
+    except (OSError, ValueError, IndexError):
+        return 0
+    if rss > limit:
+        raise MemoryLimitExceeded(
+            f"evaluation is using {rss / 1024**3:.1f} GB resident, over the "
+            f"{limit / 1024**3:.0f} GB limit; stopping rather than swapping"
+        )
+    return rss
+
+
 VARIANTS: dict[str, tuple[bool, bool]] = {
     "map": (True, False),
     "ceiling": (False, True),
@@ -628,23 +659,32 @@ def evaluate_calibrated(
 
     Returns ``(before, after, calibrations)``. Comparing the two on the same
     sequences is the only comparison worth making, and the harness never lets
-    them diverge, because both come from the same loaded frames.
+    them diverge, because both read the same files from the same cache.
     """
     network = default_network()
     directories = sorted(d for d in cache.glob("*_FIRE_*") if d.is_dir())
     if limit:
         directories = directories[:limit]
 
-    loaded: list[tuple[str, Sequence_, list[LabelledFrame]]] = []
-    for directory in directories:
-        item = load_figlib_sequence(directory, network, stride=stride)
-        if item is not None:
-            loaded.append((directory.name, item[0], item[1]))
+    # Never hold decoded frames for more than one sequence at a time. The first
+    # version loaded all 64 up front and kept them for every pass, about 5,000
+    # frames at 1024 px, and sat at 11 GB resident on a 30 GB machine shared with
+    # other work. Re-decoding a sequence per pass costs a few seconds; holding the
+    # whole set costs the machine. The calibration never needs frames anyway,
+    # only the per-camera grids and confidences gathered in pass one.
+    names = [d.name for d in directories]
+
+    def sequences():
+        for directory in directories:
+            item = load_figlib_sequence(directory, network, stride=stride)
+            if item is not None:
+                yield directory.name, item[0], item[1]
+            check_memory()
 
     # ---- pass one: no calibration, and gather the evidence -----------------
     before: list[SequenceResult] = []
     evidence: list[ClearFrameEvidence] = []
-    for index, (name, sequence, labelled) in enumerate(loaded):
+    for index, (name, sequence, labelled) in enumerate(sequences()):
         result = run_sequence(sequence, labelled, threshold=threshold, confirmer=confirmer)
         result.sequence = name
         if result.evidence is not None:
@@ -652,17 +692,18 @@ def evaluate_calibrated(
             evidence.append(result.evidence)
         before.append(result)
         if progress:
-            progress(index + 1, len(loaded), f"{name} (uncalibrated)", result)
+            progress(index + 1, len(names), f"{name} (uncalibrated)", result)
+        del sequence, labelled
 
     # ---- fit, holding out the sequence each calibration will be used on -----
-    # ---- then pass two, once per variant, on the same loaded frames ---------
+    # ---- then pass two, once per variant, re-reading the same files --------
     variants = variants or VARIANTS
     results: dict[str, Evaluation] = {}
     sets: dict[str, CalibrationSet] = {}
     for variant, (use_nuisance, use_ceiling) in variants.items():
         calibrations = CalibrationSet()
         after: list[SequenceResult] = []
-        for index, (name, sequence, labelled) in enumerate(loaded):
+        for index, (name, sequence, labelled) in enumerate(sequences()):
             camera_id = sequence.camera.camera_id
             others = [e for e in evidence if e.camera_id == camera_id and e.sequence != name]
             fitted = combine(
@@ -677,7 +718,8 @@ def evaluate_calibrated(
             result.sequence = name
             after.append(result)
             if progress:
-                progress(index + 1, len(loaded), f"{name} ({variant})", result)
+                progress(index + 1, len(names), f"{name} ({variant})", result)
+            del sequence, labelled
         by_date: dict[str, list[tuple[str, SequenceResult]]] = {}
         for result in after:
             by_date.setdefault(result.sequence.split("_")[0], []).append(

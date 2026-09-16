@@ -65,12 +65,18 @@ COPY --from=builder /build/scenarios /app/scenarios
 COPY products/firstsmoke/static /app/static
 COPY products/firstsmoke/models /app/models
 COPY products/firstsmoke/data/network /app/data/network
+# Per-camera calibrations for the real HPWREN cameras, fitted by
+# scripts/evaluate.py from each camera's clear frames. Aggregate statistics on a
+# 32x24 grid, not imagery. The rendered demonstration cameras have no history
+# and run uncalibrated, which the run record says.
+COPY products/firstsmoke/docs/calibration.json /app/data/calibration.json
 
 # The service resolves its static directory and its network metadata relative to
 # the installed package, so point both at the copies above.
 ENV FIRSTSMOKE_STATIC=/app/static \
     FIRSTSMOKE_MODELS=/app/models \
-    FIRSTSMOKE_NETWORK=/app/data/network/hpwren_sites.js
+    FIRSTSMOKE_NETWORK=/app/data/network/hpwren_sites.js \
+    FIRSTSMOKE_CALIBRATION=/app/data/calibration.json
 
 WORKDIR /app
 USER watch
