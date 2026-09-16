@@ -706,11 +706,23 @@ class Lookout:
 
     def _stand_down_or_escalate(self, detection: Detection, when: datetime) -> Alert | None:
         """Nobody backed it up. Either it was never there, or nobody could see."""
-        blind = [
-            c for c in self.consultations
-            if c.outcome == "blind" and c.camera_id in self._consulted
-        ]
-        silent = [c for c in self.consultations if c.outcome in ("silent", "off_bearing")]
+        # One entry per camera, not one per consultation round. A neighbour asked
+        # in three successive rounds appeared three times, and the sentence a
+        # person actually reads turned into a stuck record.
+        blind = list(
+            {
+                c.camera_id: c
+                for c in self.consultations
+                if c.outcome == "blind" and c.camera_id in self._consulted
+            }.values()
+        )
+        silent = list(
+            {
+                c.camera_id: c
+                for c in self.consultations
+                if c.outcome in ("silent", "off_bearing")
+            }.values()
+        )
 
         if blind and not silent:
             detail = (
@@ -789,7 +801,10 @@ class Lookout:
                 f"good to about {fix.semi_major_m:.0f} m along the long axis."
             )
         elif refusal:
-            reasoning.append(f"No position: {refusal['message']}.")
+            message = refusal["message"].rstrip()
+            if not message.endswith((".", "!", "?")):
+                message += "."
+            reasoning.append(f"No position: {message}")
             approach = refusal.get("nearest_approach")
             if approach:
                 reasoning.append(
