@@ -14,7 +14,7 @@
 # linux/amd64. A Graviton EC2 or Lambda arm64 target needs --arch linux/arm64.
 # `--arch both` publishes a multi-arch manifest from one command.
 #
-#   DRY_RUN=1 infra/ecr.sh crackscope --arch both
+#   DRY_RUN=1 infra/ecr.sh firstsmoke --arch both
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

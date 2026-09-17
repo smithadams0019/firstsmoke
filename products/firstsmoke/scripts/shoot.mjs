@@ -10,8 +10,7 @@
 // Playwright is not vendored here; point PLAYWRIGHT_PATH at an install.
 // Chromium needs --no-sandbox in this environment.
 
-const pwPath = process.env.PLAYWRIGHT_PATH
-  || '/home/rogerkorantenng/dev/Hackathons/agentic-cinema/cutaway/node_modules/playwright/index.js';
+const pwPath = process.env.PLAYWRIGHT_PATH || 'playwright';
 const pw = await import(pwPath);
 const chromium = (pw.default ?? pw).chromium;
 

@@ -9,7 +9,7 @@ A product's whole service is:
         ...
         return ctx.record
 
-    app = create_app(ServiceConfig(product=ProductInfo(slug="crackscope", ...)), analyze)
+    app = create_app(ServiceConfig(product=ProductInfo(slug="firstsmoke", ...)), analyze)
 
 Routes it gets for free:
     GET  /                       the UI shell

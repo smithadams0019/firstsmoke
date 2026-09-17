@@ -14,7 +14,7 @@
 #
 # App Runner is **x86 only** - there is no arm64 runtime. Build with
 # `infra/ecr.sh <product>` (which defaults to linux/amd64). A COOL or Graviton
-# workload cannot run here; use infra/graviton.sh for that.
+# workload cannot run here.
 #
 # Cost: ~$2.52/month per service at idle on 0.25 vCPU / 0.5 GB, so five
 # services is ~$12.60/month against the $80 budget. `--delete` between demo
