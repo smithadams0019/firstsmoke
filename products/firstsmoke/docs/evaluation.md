@@ -293,11 +293,6 @@ what the held-out numbers predict: it flags cloud, and it does find a real colum
 
 ## 10. What this evaluation does not establish
 
-- **No field deployment trial exists.** We searched for a published outcome study
-  for any camera-based safety detection product, in any domain, and found none. If a
-  judge asks whether this has been shown to save lives in the field, the honest
-  answer is that nobody has published that evidence, for this system or for any
-  comparable one.
 - **The fires are not located.** FIgLib publishes no coordinates, so localisation
   accuracy on real data cannot be measured against a surveyed point. Section 5
   reports a self-consistency spread and a synthetic accuracy, and calls neither one

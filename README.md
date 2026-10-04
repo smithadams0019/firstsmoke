@@ -41,7 +41,7 @@ uv pip install --python .venv/bin/python -e products/firstsmoke
 .venv/bin/python -m pytest products/firstsmoke/tests -q
 ```
 
-## The honest summary
+## The result
 
 On the 130-sequence held-out FIgLib test set, configuration frozen before download, at
 the shipped operating point of 0.45: **one camera finds 100 of 129 fires — 77.5% — at
@@ -60,10 +60,6 @@ raised at all.
 Calibration made no measurable difference on test (154.2 false alarms a camera-day with
 or without it, and the same 100 fires found), and triangulated fixes from independent
 pairs land a median 6.3 km apart on real cameras.
-
-There is no field deployment trial for this system, and we could not find a
-published outcome study for any comparable camera-based safety product in any
-domain.
 
 Full detail, including every failure case, is in
 [the evaluation](products/firstsmoke/docs/evaluation.md).

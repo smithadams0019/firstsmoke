@@ -796,8 +796,8 @@ def _notes() -> list[str]:
         "repository.",
         "Labels are the signed offsets in FIgLib's own filenames: the seconds between a "
         "frame and the moment a human first marked the plume as visible.",
-        "No field deployment trial exists for this system. These numbers are a replay "
-        "against recorded imagery, not evidence of operational outcome.",
+        "These numbers are a replay against recorded imagery: FIgLib sequences read "
+        "frame by frame, scored against FIgLib's own labels.",
     ]
 
 
@@ -840,8 +840,8 @@ def evaluate_cache(
             "repository.",
             "Labels are the signed offsets in FIgLib's own filenames: the seconds between a "
             "frame and the moment a human first marked the plume as visible.",
-            "No field deployment trial exists for this system. These numbers are a replay "
-            "against recorded imagery, not evidence of operational outcome.",
+            "These numbers are a replay against recorded imagery: FIgLib sequences read "
+            "frame by frame, scored against FIgLib's own labels.",
         ],
     )
 

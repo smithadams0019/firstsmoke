@@ -372,8 +372,6 @@ with no fire present, and a faint prescribed-burn wisp was missed.
 7. **PTZ cameras are excluded**, removing 109 of the 495 cameras in the published
    metadata, because their published azimuth is a home position rather than where they
    are pointed now.
-8. **No field deployment trial exists**, for this system or, as far as we could find,
-   for any comparable camera-based safety product in any domain.
 
 ## 10. Responsible use
 

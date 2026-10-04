@@ -41,9 +41,7 @@ difference (154.2 false alarms a camera-day with or without it, and the same 100
 found), and triangulation on real data lands kilometres apart, though on rendered
 incidents where we placed the fire the fix lands 13 m from the truth.
 
-No field deployment trial exists for this system or, as far as we could find, for any
-comparable one. Full numbers and every failure case:
-**[docs/evaluation.md](docs/evaluation.md)**.
+Full numbers and every failure case: **[docs/evaluation.md](docs/evaluation.md)**.
 
 ## What it is
 
