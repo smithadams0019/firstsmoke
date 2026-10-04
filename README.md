@@ -19,7 +19,6 @@ OpenCV 5.0.0, pinned.
 | [products/firstsmoke/docs/report.md](products/firstsmoke/docs/report.md) | the technical report |
 | [products/firstsmoke/docs/evaluation.md](products/firstsmoke/docs/evaluation.md) | the numbers, and the failure cases |
 | [products/firstsmoke/docs/architecture.md](products/firstsmoke/docs/architecture.md) | diagrams of the pipeline, the agent loop and the AWS components |
-| [products/firstsmoke/docs/costs.md](products/firstsmoke/docs/costs.md) | what is running on AWS and what it costs |
 
 ## Why the repository has this shape
 
@@ -44,14 +43,23 @@ uv pip install --python .venv/bin/python -e products/firstsmoke
 
 ## The honest summary
 
-On the held-out test set (94 of 130 FIgLib sequences scored so far, configuration
-frozen before download): **one camera finds 78.7% of fires at 151.6 false alarms per
-camera-day, a median of 210 s after the human who labelled them; with a second camera
-required, 28.6% at 18.4.** On the 64 development sequences where the threshold was
-chosen: 79.4% at 150 (+438 s), and 42.4% at 21.7 with two cameras. Calibration made
-no measurable difference on test (151.2 without, 151.6 with). It never alerted ahead
-of the human mark, triangulated fixes land a median 3.8 km apart, and it is not
-deployable at these false-alarm rates.
+On the 130-sequence held-out FIgLib test set, configuration frozen before download, at
+the shipped operating point of 0.45: **one camera finds 100 of 129 fires — 77.5% — at
+154.2 false-positive frames per camera-day, a median of 240 s after the human who
+labelled them, and never earlier.** On the 64 development sequences where the threshold
+was chosen: 79.4% at 150.3, +438 s. 154.2 frames a camera-day is about one clear frame
+in nine, and that volume, not detection, is what the design after the detector is for.
+
+**The second camera is not a gate, and we measured why.** On the 67 held-out fires that
+two or more summits recorded, requiring both to agree finds 29.9% of them at 19.6
+false-positive frames a camera-day, while raising one camera's own bar to 0.55 finds
+43.3% at 16.2 — more fires for fewer false alarms, from one camera. So corroboration
+orders the queue and attaches a position rather than deciding whether anything is
+raised at all.
+
+Calibration made no measurable difference on test (154.2 false alarms a camera-day with
+or without it, and the same 100 fires found), and triangulated fixes from independent
+pairs land a median 6.3 km apart on real cameras.
 
 There is no field deployment trial for this system, and we could not find a
 published outcome study for any comparable camera-based safety product in any

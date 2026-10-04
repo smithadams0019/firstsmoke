@@ -44,13 +44,19 @@ from .tracks import Growth, Track, Tracker
 SUSPECT_AT = 0.45
 """Below this a camera stays on watch and says nothing.
 
-Chosen off the development curve, not set by hand. With per-camera calibration,
-requiring a second summit to corroborate, the development set gave 63.6%
-detection at 157 false positives per camera-day at 0.35, 45.5% at 71.8 at 0.40,
-42.4% at 21.7 at 0.45, and nothing at all at 0.50. 0.45 is the knee: from 0.40
-it removes 70% of the remaining false alarms for three points of detection, and
-one step further detection collapses. It was 0.35 before calibration, picked on
-synthetic data."""
+Chosen off the development curve, not set by hand, and frozen before the test set
+was downloaded. The curve it was read from was the *corroborated* one — two
+summits required to agree — where the development set gave 63.6% detection at 157
+false positives per camera-day at 0.35, 42.4% at 21.7 at 0.45, and nothing at all
+at 0.50. 0.45 is that curve's knee. It was 0.35 before calibration, picked on
+synthetic data.
+
+The held-out set later showed that the corroborated curve is the wrong curve to
+read a threshold off, because requiring agreement is dominated by raising one
+camera's own bar: 29.9% at 19.6 against 43.3% at 16.2 on the same 67 fires
+(docs/evaluation.md §1). Corroboration therefore ranks the queue rather than
+gating it, and this threshold stays where it was frozen so that every held-out
+figure is reported at the point that was chosen blind."""
 CONFIRM_AT = 0.68
 """At or above this one camera is willing to assert a column on its own. Between
 the two is the band the escalation loop exists to resolve."""

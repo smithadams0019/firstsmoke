@@ -43,7 +43,42 @@ function stamp(iso) {
 }
 const km = (m) => `${(m / 1000).toFixed(1)} km`;
 
+// What the status strip says. The dot beside it is a second carrier of the same
+// fact, never the only one.
+const STATE_WORDS = {
+  idle: 'Standing by',
+  watch: 'Watching',
+  watching: 'Watching',
+  suspect: 'Tracking a candidate',
+  consult: 'Asking the neighbours',
+  alerted: 'Flag raised',
+  confirmed: 'Crossing confirmed',
+  stood_down: 'Stood down',
+  needs_human: 'Waiting on a person',
+  unresolved: 'Unsettled',
+};
+function stateWord(state) {
+  if (S.alert?.fix && (state === 'alerted' || state === 'confirmed')) return 'Crossing confirmed';
+  return STATE_WORDS[state] ?? state.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+}
+
+// The engine ends a stand-down back in 'watch', because that is what it is
+// doing. A run that is over is not "watching"; the strip has to say what came
+// of it, so the dot and the word both come from here.
+function dutyState() {
+  if (S.error) return { key: 'failed', word: 'Did not run' };
+  if (S.running) return { key: 'watch', word: 'Watching' };
+  if (!S.summary) return { key: 'idle', word: 'Standing by' };
+  if (S.alert) return { key: S.summary.state, word: stateWord(S.summary.state) };
+  const stoodDown = S.transitions.some((t) => t.trigger === 'not_corroborated');
+  return stoodDown
+    ? { key: 'stood_down', word: 'Stood down' }
+    : { key: 'clear', word: 'Nothing raised' };
+}
+
 const S = {
+  config: null,
+  error: null,
   network: null,
   scenario: null,
   running: false,
@@ -52,7 +87,6 @@ const S = {
   evidence: [],
   alert: null,
   summary: null,
-  version: null,
   upload: null,
   uploading: false,
   startedAt: null,
@@ -139,27 +173,35 @@ function unplaced() {
 
 function drawNoMap(host) {
   host.querySelector('.map-note')?.setAttribute('hidden', '');
-  // In place of a map, the frame the watch was most sure about, so the panel
-  // shows what was actually seen rather than an empty sheet.
+  // No sheet to draw on, so the panel shows the frame the watch was most sure
+  // about. With no frame either, the panel has nothing in it and hides.
   const best = [...S.evidence].sort((a, b) => (b.metrics?.confidence ?? 0) - (a.metrics?.confidence ?? 0))[0];
-  if (best?.uri) {
-    const fig = el('figure', 'nomap-frame');
-    const img = el('img');
-    img.src = best.uri;
-    img.alt = `The highest-scoring flagged frame: ${best.caption || ''}`;
-    fig.append(img, el('figcaption', '', `Highest-scoring flag, ${(best.metrics?.confidence ?? 0).toFixed(2)}`
-      + `${best.metrics?.at ? `, ${stamp(best.metrics.at)}` : ''}: ${best.caption || ''}`));
-    host.append(fig);
-  }
+  const panel = host.closest('.panel');
+  if (!best?.uri) { if (panel) panel.hidden = true; return; }
+  if (panel) panel.hidden = false;
+
+  const fig = el('figure', 'nomap-frame');
+  const img = el('img');
+  img.src = best.uri;
+  img.alt = `The highest-scoring flagged frame: ${best.caption || ''}`;
+  const caption = el('figcaption');
+  caption.append(
+    document.createTextNode('Highest score '),
+    el('b', '', (best.metrics?.confidence ?? 0).toFixed(2)),
+    document.createTextNode(`${best.metrics?.at ? `, ${stamp(best.metrics.at)}` : ''}. `
+      + `${best.caption || ''}`),
+  );
+  fig.append(img, caption);
+  host.append(fig);
+
   const box = el('div', 'nomap');
-  box.append(el('h3', '', 'No map for this footage'));
-  box.append(el('p', '', 'It comes from one camera whose position is not known. Firstsmoke '
-    + 'locates smoke by crossing bearings from two surveyed cameras, and there is no second view '
-    + 'here to cross, so no location is reported and none is guessed.'));
-  const code = el('p');
-  code.append(el('code', '', 'NO_SECOND_VIEW'),
-    document.createTextNode(' is the reason on every flag this footage raises.'));
-  box.append(code);
+  box.append(el('h3', '', 'No position for this footage'));
+  const where = el('p');
+  where.append(document.createTextNode('One camera, no surveyed position. The flags stand; there '
+    + 'is nothing here to cross their bearings with, so each one carries '),
+    el('code', '', 'NO_SECOND_VIEW'),
+    document.createTextNode(' and no location.'));
+  box.append(where);
   box.append(el('p', '', 'Each flag is placed as a share of the way across the frame, because '
     + 'nothing says which way this camera faces.'));
   host.append(box);
@@ -170,6 +212,8 @@ function drawMap() {
   if (!host || !S.network) return;
   for (const child of [...host.children]) if (child.tagName !== 'SPAN') child.remove();
   if (unplaced()) { drawNoMap(host); return; }
+  const panel = host.closest('.panel');
+  if (panel) panel.hidden = false;
   host.querySelector('.map-note')?.removeAttribute('hidden');
 
   const alert = S.alert;
@@ -268,8 +312,8 @@ function drawMap() {
     const [fx, fy] = project(fix.lat, fix.lon);
     const rx = Math.max(project.metres(fix.semi_major_m), 7);
     const ry = Math.max(project.metres(fix.semi_minor_m), 5);
-    canvas.append(svg('ellipse', { cx: fx, cy: fy, rx, ry, fill: 'url(#ell)', stroke: 'var(--danger)', 'stroke-width': 1.6 }));
-    canvas.append(svg('circle', { cx: fx, cy: fy, r: 4, fill: 'var(--danger)' }));
+    canvas.append(svg('ellipse', { cx: fx, cy: fy, rx, ry, fill: 'url(#ell)', stroke: 'var(--fire)', 'stroke-width': 1.6 }));
+    canvas.append(svg('circle', { cx: fx, cy: fy, r: 4, fill: 'var(--fire)' }));
     tagBox(canvas, fx + rx + 10, fy - 16,
       `${fix.lat.toFixed(4)} N, ${Math.abs(fix.lon).toFixed(4)} W`,
       `ellipse ${Math.round(fix.semi_major_m)} m by ${Math.round(fix.semi_minor_m)} m, bearings ${fix.crossing_angle_deg.toFixed(1)}° apart`);
@@ -287,14 +331,14 @@ function drawMap() {
     canvas.append(svg('circle', { cx: x, cy: y, r: 6, class: `marker${discarded ? ' marker--discarded' : ''}` }));
     if (onRay.has(camera.camera_id)) {
       const ray = rays.find((r) => r.camera_id === camera.camera_id);
-      plate(canvas, x, y, camera.camera_id,
+      plate(canvas, x, y, camera.label ?? camera.camera_id,
         `bearing ${ray.bearing_deg.toFixed(1)}° ± ${ray.sigma_deg.toFixed(1)}°`, x < MAP_W / 2);
     } else if (discarded) {
       const consultation = S.consultations.find((c) => c.camera_id === camera.camera_id);
       canvas.append(svg('text', { x: x + 12, y: y + 5, class: 'discard__label' },
-        `${camera.camera_id}  ${consultation ? consultation.outcome.replace(/_/g, ' ') : 'not consulted'}`));
+        `${camera.label ?? camera.camera_id}  ${consultation ? consultation.outcome.replace(/_/g, ' ') : 'not consulted'}`));
     } else {
-      canvas.append(svg('text', { x: x + 12, y: y + 5, class: 'discard__label' }, camera.camera_id));
+      canvas.append(svg('text', { x: x + 12, y: y + 5, class: 'discard__label' }, camera.label ?? camera.camera_id));
     }
   }
 
@@ -302,12 +346,10 @@ function drawMap() {
   host.append(bearingTable(rays, fix, approach));
 
   const legend = el('div', 'legend');
-  legend.append(
-    swatch('var(--danger)', fix ? 'bearing, with its ±' : 'bearing, unconfirmed'),
-    swatch('var(--accent)', 'camera used'),
-    swatch('var(--unusable)', 'camera discarded'),
-  );
-  if (approach && !fix) legend.append(swatch('var(--refuse)', 'nearest approach'));
+  if (rays.length) legend.append(swatch('var(--fire)', fix ? 'bearing, with its ±' : 'bearing, uncorroborated'));
+  legend.append(swatch('var(--pine)', 'camera used'));
+  if (S.consultations.length) legend.append(swatch('var(--discarded)', 'camera discarded'));
+  if (approach && !fix) legend.append(swatch('var(--ochre)', 'nearest approach'));
   host.append(legend);
 }
 
@@ -379,44 +421,52 @@ function describeMap() {
 // ═══════════════════════════════════════════════════════════════ panels ══
 
 function drawTop() {
-  const state = S.summary?.state ?? (S.running ? 'watch' : 'idle');
-  $('tb-dot').dataset.state = state;
-  $('tb-title').textContent = S.scenario ? S.scenario.title : 'No incident loaded';
+  // The strip carries the state, not the incident name: the heading below it
+  // already has the name, and the same fact twice is one fact too many.
+  const duty = dutyState();
+  $('tb-dot').dataset.state = duty.key;
+  $('tb-title').textContent = duty.word;
+
   const consulted = new Set(S.consultations.map((c) => c.camera_id)).size;
   const total = S.summary?.cameras ?? cameras().length;
-  $('tb-consulted').innerHTML = `Consulted <b>${consulted}</b> of ${total} cameras`;
+  const asked = $('tb-consulted');
+  asked.hidden = !consulted;
+  if (consulted) asked.innerHTML = `Asked <b class="n">${consulted}</b> of ${total} cameras`;
 
-  if (S.startedAt) {
+  const times = $('tb-times');
+  times.hidden = !S.transitions.length;
+  if (S.transitions.length) {
     const elapsed = S.endedAt ? Math.round((S.endedAt - S.startedAt) / 1000) : null;
     const last = S.transitions.at(-1);
-    $('tb-times').innerHTML =
-      `Flag <b>${stamp(S.transitions[0]?.at)}</b> → ${last ? last.to.replace(/_/g, ' ') : 'watching'} `
-      + `<b>${stamp(last?.at)}</b>${elapsed !== null ? `, ${elapsed} s` : ''}`;
+    times.innerHTML = `Flag <time>${stamp(S.transitions[0]?.at)}</time> → `
+      + `${last ? last.to.replace(/_/g, ' ') : 'watching'} <time>${stamp(last?.at)}</time>`
+      + `${elapsed !== null ? `, <span class="n">${elapsed} s</span>` : ''}`;
   }
   $('tb-raw').hidden = !S.evidence.length;
 }
 
 function drawRail() {
-  $('rf-opencv').textContent = S.version ? S.version.opencv_version : '…';
-  $('rf-sha').textContent = S.version ? S.version.git_sha : '…';
-  $('rf-frames').textContent = S.summary ? String(S.summary.frames_read) : '—';
-  $('rf-consulted').textContent = String(new Set(S.consultations.map((c) => c.camera_id)).size || '—');
-
-  const outcome = $('rf-outcome');
-  const state = S.summary?.state ?? (S.running ? 'watching' : 'idle');
-  outcome.textContent = state.replace(/_/g, ' ');
-  outcome.className = state === 'alerted' ? 'hot' : state === 'needs_human' ? 'refuse' : '';
-  $('nav-map').textContent = String(cameras().length || '—');
-  $('nav-wall').textContent = String(S.evidence.length || '—');
-  $('nav-detections').textContent = String(S.upload && S.summary ? (S.summary.alerts?.length ?? 0) : (S.alert ? 1 : 0));
-  $('nav-timeline').textContent = String(S.transitions.length || '—');
-  $('trail-panel').closest('.split')?.classList.toggle('is-alert', Boolean(S.alert));
+  // A count of nothing is not a count. An em dash in a badge is furniture, so
+  // a badge with no number to show does not exist.
+  const loaded = Boolean(S.summary || S.running);
+  const count = (id, value) => {
+    const chip = $(id);
+    chip.hidden = !loaded || !value;
+    if (value) chip.textContent = String(value);
+  };
+  count('nav-map', cameras().length);
+  count('nav-wall', S.evidence.length);
+  count('nav-detections', S.upload && S.summary ? (S.summary.alerts?.length ?? 0) : (S.alert ? 1 : 0));
+  count('nav-timeline', S.transitions.length);
   $('split').classList.toggle('is-upload', Boolean(S.upload));
 }
 
 function drawKpis() {
   const host = $('kpis');
-  if (!S.summary) { host.hidden = true; return; }
+  // The strip exists when there is a flag to act on. Nothing raised is one
+  // fact, and the card below it already carries that fact.
+  const flagged = Boolean(S.alert) || (S.upload && (S.summary?.alerts?.length ?? 0) > 0);
+  if (!S.summary || !flagged) { host.hidden = true; return; }
   host.hidden = false;
   host.replaceChildren();
   const alert = S.alert;
@@ -429,36 +479,38 @@ function drawKpis() {
     const peak = flags ? Math.max(...S.summary.alerts.map((a) => a.confidence)) : null;
     const spacing = up.spacing_s >= 90 ? `${(up.spacing_s / 60).toFixed(1)} min` : `${up.spacing_s.toFixed(up.spacing_s < 10 ? 1 : 0)} s`;
     const cards = [
-      { k: 'Frames analysed', v: `${up.analysed_frames}`, unit: `of ${up.total_frames}`, n: up.capped ? 'cut short, the rest not read' : `${spacing} apart in real time` },
-      { k: 'Flags raised', v: String(flags), n: flags ? 'each left open for a person' : 'nothing grew like smoke', cls: flags ? 'refuse' : 'good' },
-      { k: 'Highest score', v: peak === null ? '—' : peak.toFixed(2), n: `of 1.00; ${S.summary.frames_read} reads` },
-      { k: 'Position', v: 'none', n: 'one camera, no known position', cls: 'refuse' },
+      { k: 'Flags for a person', v: String(flags), n: flags ? 'open this list in score order' : 'nothing grew like smoke', cls: flags ? 'refuse' : 'good' },
+      { k: 'Highest score', v: peak === null ? '—' : peak.toFixed(2), n: 'of 1.00 — open this one first' },
+      { k: 'Position', v: 'none', n: `one camera, no second view to cross; frames ${spacing} apart`, cls: 'refuse' },
     ];
     renderKpis(host, cards);
     return;
   }
 
-  const cards = [
-    { k: 'Cameras watched', v: String(S.summary.cameras), n: 'every one, every tick' },
-    { k: 'Frames read', v: String(S.summary.frames_read), n: 'including the re-reads' },
-    {
-      k: 'Confidence', v: alert ? alert.confidence.toFixed(2) : '—',
-      n: alert ? 'of 1.00, after the rejectors' : `nothing above ${threshold()}`,
-      cls: alert ? 'hot' : '',
-    },
-  ];
+  const cards = [{
+    k: 'Score', v: alert.confidence.toFixed(2),
+    n: 'of 1.00, after the rejectors', cls: fix ? 'hot' : 'refuse',
+  }];
   if (fix) {
     cards.push(
-      { k: 'Position', v: `${fix.lat.toFixed(4)}, ${fix.lon.toFixed(4)}`, n: `± ${Math.round(fix.semi_major_m)} m along the long axis`, mono: true },
+      {
+        k: 'Position', mono: true,
+        v: `${fix.lat.toFixed(4)} N, ${Math.abs(fix.lon).toFixed(4)} W`,
+        n: `± ${Math.round(fix.semi_major_m)} m along the long axis`,
+      },
       { k: 'Crossing angle', v: fix.crossing_angle_deg.toFixed(1), unit: '°', n: 'below 8° the fix is refused', cls: 'good' },
     );
   } else if (approach) {
     cards.push(
-      { k: 'Nearest approach', v: km(approach.distance_m), n: `corridor ${Math.round(approach.corridor_m)} m at that range`, cls: 'refuse' },
       { k: 'Position', v: 'not reported', n: 'the bearings do not meet', cls: 'refuse' },
+      { k: 'Nearest approach', v: km(approach.distance_m), n: `corridor ${Math.round(approach.corridor_m)} m at that range`, cls: 'refuse' },
     );
   } else {
-    cards.push({ k: 'Unusable cameras', v: String(S.summary.unusable.length), n: 'named, with the fault' });
+    cards.push({
+      k: 'Position', v: 'not reported', cls: 'refuse',
+      n: S.summary.unusable.length ? 'no camera that overlooks the bearing can be believed'
+        : 'no second bearing to cross',
+    });
   }
   renderKpis(host, cards);
 }
@@ -485,25 +537,33 @@ function drawCallout() {
   const box = $('callout');
   const text = $('callout-text');
   const actions = $('callout-actions');
-  const heading = box.querySelector('h3');
+  const heading = box.querySelector('h2');
   actions.replaceChildren();
 
   const alert = S.alert;
+  if (S.error) {
+    box.hidden = false;
+    box.dataset.tone = 'refuse';
+    heading.textContent = 'This incident did not run';
+    text.replaceChildren(el('p', '', S.error));
+    return;
+  }
+  // Before anything has been watched, and while a run is still going, this card
+  // has nothing to say. It disappears rather than printing a note about its own
+  // emptiness; the incident list below is the way in.
+  if (!S.summary && !alert) { box.hidden = true; return; }
+  box.hidden = false;
   if (S.upload && S.summary) { drawUploadCallout(box, heading, text); return; }
   if (!alert) {
     box.dataset.tone = 'plain';
-    heading.textContent = S.running ? 'The watch is running' : 'Nothing is being watched yet';
-    text.replaceChildren(document.createTextNode(S.running
-      ? 'Every camera is read on every tick. Nothing is reported until a candidate has been '
-        + 'tracked for long enough that its growth rate means something.'
-      : 'Four incidents are bundled with the service, one for each way the watch can end: a '
-        + 'confirmed crossing, a stand-down, a fire nobody can corroborate, and a pair of '
-        + 'cameras that are up but not watching anything.'));
+    heading.textContent = 'Nothing was raised on this incident';
+    text.replaceChildren();
+    text.append(el('p', '', 'Every candidate either failed to grow like a column, or a camera that '
+      + 'could see the same bearing contradicted it. Nothing is waiting on you.'));
     return;
   }
 
   const fix = alert.fix;
-  const approach = alert.fix_refusal ? alert.fix_refusal.nearest_approach : null;
   if (fix) {
     box.dataset.tone = 'alert';
     heading.textContent = alert.headline;
@@ -511,16 +571,74 @@ function drawCallout() {
   } else {
     box.dataset.tone = 'refuse';
     heading.textContent = alert.state === 'needs_human'
-      ? 'Firstsmoke will not close this on its own'
-      : 'Firstsmoke does not report a location it cannot triangulate';
+      ? 'This one is waiting on a person'
+      : 'Flagged, with no position to send';
     actions.append(button('btn-line', 'Ask a wider ring of cameras'), button('btn-line', 'Escalate anyway, with a reason'));
   }
+  text.replaceChildren();
+  const strip = degreeStrip(alert);
+  if (strip) text.append(strip);
   // Each reasoning line is a whole sentence about a different camera. Joining
   // them with spaces produced one unreadable paragraph, so they get a list.
-  text.replaceChildren();
   const list = el('ul', 'why');
-  for (const line of alert.reasoning.slice(0, 5)) list.append(el('li', '', tidy(line)));
+  for (const line of alert.reasoning.slice(0, 5)) list.append(el('li', '', brief(line)));
   text.append(list);
+  $('callout-actions').append(el('p', 'flag-note',
+    'Firstsmoke stops here. It cannot dispatch, and it cannot move a camera.'));
+}
+
+// The Firefinder's ring, unrolled. Pips are the bearings the world answered;
+// the bracket over them is how far apart they are, which is the one thing that
+// decides whether a crossing is worth anything. Bearings two degrees apart look
+// parallel here before anybody reads a number.
+function degreeStrip(alert) {
+  const rays = alert.rays ?? [];
+  if (!rays.length) return null;
+  // The drawing holds the geometry; every word around it is HTML, so the
+  // labels stay legible when the strip is 280 px wide on a phone instead of
+  // shrinking with the viewBox into something nobody can read.
+  const W = 720, H = 40, X0 = 1, X1 = W - 1, BASE = 30;
+  const at = (deg) => X0 + ((((deg % 360) + 360) % 360) / 360) * (X1 - X0);
+  const bearings = rays.map((r) => r.bearing_deg).sort((a, b) => a - b);
+  const apart = alert.fix ? alert.fix.crossing_angle_deg
+    : (bearings.length > 1 ? bearings.at(-1) - bearings[0] : null);
+
+  const wrap = el('div', 'ring');
+  if (!alert.fix) wrap.dataset.tone = 'refuse';
+  wrap.append(el('p', 'ring-cap', apart === null
+    ? 'one bearing, nothing to cross'
+    : `${apart.toFixed(1)}\u00B0 apart`));
+
+  const label = bearings.length > 1
+    ? `Bearing strip: ${bearings.length} bearings, from ${bearings[0].toFixed(1)} to `
+      + `${bearings.at(-1).toFixed(1)} degrees, ${apart.toFixed(1)} degrees apart.`
+    : `Bearing strip: one bearing, ${bearings[0].toFixed(1)} degrees. Nothing to cross it.`;
+  const canvas = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label });
+
+  canvas.append(svg('line', { x1: X0, y1: BASE, x2: X1, y2: BASE, class: 'ring__rule' }));
+  for (let d = 0; d <= 360; d += 10) {
+    const major = d % 90 === 0;
+    const x = at(d === 360 ? 359.99 : d);
+    canvas.append(svg('line', {
+      x1: x, y1: BASE, x2: x, y2: BASE + (major ? 9 : 4),
+      class: major ? 'ring__tick ring__tick--major' : 'ring__tick',
+    }));
+  }
+  for (const bearing of bearings) {
+    canvas.append(svg('line', { x1: at(bearing), y1: 14, x2: at(bearing), y2: BASE, class: 'ring__pip' }));
+  }
+  if (apart !== null) {
+    const a = at(bearings[0]), b = at(bearings.at(-1));
+    canvas.append(svg('path', { d: `M ${a} 12 L ${a} 5 L ${b} 5 L ${b} 12`, fill: 'none', class: 'ring__span' }));
+  }
+  wrap.append(canvas);
+
+  const scale = el('div', 'ring-scale');
+  for (const card of ['N 0\u00B0', 'E 90\u00B0', 'S 180\u00B0', 'W 270\u00B0']) {
+    scale.append(el('span', '', card));
+  }
+  wrap.append(scale);
+  return wrap;
 }
 
 function drawUploadCallout(box, heading, text) {
@@ -534,10 +652,10 @@ function drawUploadCallout(box, heading, text) {
     list.append(el('li', '', `Firstsmoke ${up.coverage} and raised no flag.`));
   } else {
     box.dataset.tone = 'refuse';
-    heading.textContent = `${alerts.length} flag${alerts.length === 1 ? '' : 's'} a person must settle: NO_SECOND_VIEW`;
+    heading.textContent = `${alerts.length} flag${alerts.length === 1 ? '' : 's'} for a person, highest score first`;
     list.append(el('li', '', tidy(`Firstsmoke ${up.coverage}`)));
-    list.append(el('li', '', 'One camera with no known position cannot be corroborated, so every '
-      + 'flag stays open and no location is given.'));
+    list.append(el('li', '', 'This camera raised them on its own. There is no second view here to '
+      + 'cross a bearing with, so each flag carries NO_SECOND_VIEW and no position.'));
   }
   for (const note of up.notes.filter((n) => /assumed|cut after|stopped at/.test(n))) list.append(el('li', '', tidy(note)));
   text.append(list);
@@ -548,6 +666,19 @@ function drawUploadCallout(box, heading, text) {
     }
     text.append(flags);
   }
+}
+
+// The server writes one reason per camera, each a clause a person needs
+// followed by the measurement behind it. The card keeps the clause; the trail
+// panel and the frame captions below already carry the measurement in full, so
+// repeating it here only buys four paragraphs nobody reads at a glance.
+function brief(line) {
+  const trimmed = line.trim();
+  const colon = trimmed.indexOf(':', trimmed.indexOf(':') + 1);
+  const cut = colon > 0 ? colon : trimmed.indexOf(';');
+  // Below this, the clause before the cut is a label rather than a reason
+  // ("Ridge B NW: cannot answer"), and the fault after it is the whole point.
+  return tidy(cut > 48 ? trimmed.slice(0, cut) : trimmed);
 }
 
 function tidy(line) {
@@ -588,17 +719,21 @@ function drawTrail() {
       at: transition.at,
       head: headline(transition),
       detail,
-      tone: ['crossed_bearings', 'weak_detection'].includes(transition.trigger) ? 'hot'
+      tone: transition.trigger === 'crossed_bearings' ? 'hot'
         : ['neighbours_blind', 'unresolved', 'no_second_view'].includes(transition.trigger) ? 'refuse'
         : transition.trigger === 'not_corroborated' ? 'wait' : '',
     });
   }
 
+  // A panel with no steps in it has nothing to say, so it goes away rather
+  // than printing a line about the steps it does not have.
+  const panel = $('trail-panel');
   if (!steps.length) {
-    host.append(el('p', 'empty', 'The trail fills in as the watch runs.'));
+    panel.hidden = true;
     held.hidden = true;
     return;
   }
+  panel.hidden = false;
   steps.forEach((step, index) => {
     const row = el('div', `step ${step.tone}`.trim());
     row.append(el('div', 't', String(index + 1)));
@@ -610,11 +745,10 @@ function drawTrail() {
     host.append(row);
   });
 
-  $('trail-sub').textContent = `${steps.length} steps`;
   if (S.upload && S.summary) {
     held.hidden = false;
-    held.innerHTML = '<b>Nothing was sent.</b> Uploaded footage has no neighbours to ask, so the '
-      + 'watch notes each flag, keeps reading, and leaves every one for a person.';
+    held.innerHTML = '<b>Nothing was sent.</b> There are no neighbours to ask here, so the watch '
+      + 'noted each flag, kept reading, and put every one in front of a person.';
   } else if (S.alert) {
     held.hidden = false;
     held.innerHTML = S.alert.state === 'alerted'
@@ -647,7 +781,9 @@ const HEADLINES = {
 };
 function headline(transition) {
   const base = HEADLINES[transition.trigger] ?? transition.to.replace(/_/g, ' ');
-  return transition.cameras.length ? `${base} — ${transition.cameras[0]}` : base;
+  if (!transition.cameras.length) return base;
+  const id = transition.cameras[0];
+  return `${base} — ${cameraFor(id)?.label ?? id}`;
 }
 
 function drawWall() {
@@ -668,7 +804,8 @@ function drawWall() {
     const flagged = camera && camera.camera_id === alertCamera;
 
     let cls = 'tile';
-    if (flagged || consultation?.outcome === 'supported') cls += ' flag';
+    if (flagged) cls += ' flag';
+    else if (consultation?.outcome === 'supported') cls += ' ok';
     else if (consultation) cls += ' asked';
     if (!usable) cls += ' dark';
 
@@ -690,7 +827,6 @@ function drawWall() {
     tile.append(lab);
     host.append(tile);
   }
-  $('wall-sub').textContent = S.upload ? `${S.evidence.length} flagged frames` : `${S.evidence.length} cameras`;
 }
 
 function drawTimeline() {
@@ -724,28 +860,27 @@ function drawTimeline() {
   }
   table.append(body);
   host.append(table);
-  $('timeline-sub').textContent = `${S.transitions.length} transitions`;
 }
 
 function drawMethod() {
   const host = $('method');
   if (host.children.length) return;
   const items = [
+    ['One camera raises the flag',
+     'A second view is not a gate. One camera\u2019s own bar decides whether a flag exists. What '
+     + 'the neighbours answer then orders the queue and attaches the evidence: a crossed bearing '
+     + 'goes to the top with a position on the ground, and a confident single camera goes to a '
+     + 'person marked NO_SECOND_VIEW, with no position.'],
     ['It watches how a shape behaves, not how it looks',
-     'A cloud, a dust plume and a column of smoke look alike in one still. Over ten minutes '
-     + 'they do not. Smoke keeps its base where the fire is and pushes its top upward; a cloud '
-     + 'moves all of itself at the wind speed; dust runs along the ground without rising.'],
-    ['Every score is a weighted sum you can read',
-     'Eight named terms, each between 0 and 1, each carrying the sentence that explains what it '
-     + 'measured. A rejector then multiplies the score down and says which impostor it thinks '
-     + 'this is. Nothing is hidden in a model.'],
+     'A cloud, a dust plume and a column of smoke look alike in one still. Over ten minutes they '
+     + 'do not. Smoke keeps its base where the fire is and pushes its top upward; a cloud moves '
+     + 'all of itself at the wind speed; dust runs along the ground without rising.'],
     ['A camera that cannot see is not a camera that sees nothing',
      'Night, fog, a wet lens, direct sun and a frozen feed are five separate verdicts, each with '
      + 'its own test. Silence from a blind camera is never counted as evidence of an empty hillside.'],
-    ['It stops at the alert',
-     'The system may read a camera it was not reading, re-read one it already read, and ask a '
-     + 'human. It cannot pan a camera and it cannot dispatch anything. A false alarm costs someone '
-     + 'a look at a picture; the alternative costs more.'],
+    ['It stops at the flag',
+     'The watch may read a camera it was not reading, re-read one it already read, and put a flag '
+     + 'in front of a person. It cannot pan a camera and it cannot dispatch anything.'],
   ];
   for (const [title, text] of items) {
     const card = el('div');
@@ -756,6 +891,15 @@ function drawMethod() {
 
 function redraw() {
   drawTop(); drawRail(); drawKpis(); drawCallout(); drawMap(); drawTrail(); drawWall(); drawTimeline();
+  // Last, because it reads the hidden state the draws above have just set.
+  for (const [nav, target] of [['map', 'map-panel'], ['wall', 'wall-panel'],
+                               ['detections', 'callout'], ['timeline', 'timeline-panel']]) {
+    const link = document.querySelector(`[data-nav="${nav}"]`);
+    // offsetParent, not .hidden: the map panel is inside #split, so it can be
+    // off the page without carrying the attribute itself.
+    const node = document.getElementById(target);
+    if (link) link.classList.toggle('off', !node || node.offsetParent === null);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════ run ══
@@ -763,15 +907,17 @@ function redraw() {
 function reset(scenario) {
   S.scenario = scenario ?? null;
   S.transitions = []; S.consultations = []; S.evidence = [];
-  S.alert = null; S.summary = null; S.upload = null;
+  S.alert = null; S.summary = null; S.upload = null; S.error = null;
   S.startedAt = Date.now(); S.endedAt = null;
   $('split').hidden = false;
   if (scenario) {
     $('page-title').textContent = scenario.title;
-    $('page-sub').textContent = scenario.blurb + ' ' + scenario.expect;
+    $('page-sub').textContent = scenario.blurb;
   }
   redraw();
-  $('split').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // The incident buttons are near the bottom of the page and the result lands
+  // at the top of it, so the page goes back to the top rather than to the map.
+  $('page').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function runScenario(scenario, button) {
@@ -792,12 +938,22 @@ async function runScenario(scenario, button) {
     follow(payload.job_id);
   } catch (error) {
     finished();
-    $('callout-text').replaceChildren(document.createTextNode(error.message ?? String(error)));
+    failed(error.message ?? String(error));
   }
+}
+
+// The flag card is hidden until there is something on it, so an error has to
+// put it back on screen or it would fail in silence.
+function failed(message) {
+  S.error = message;
+  drawCallout();
 }
 
 function finished() {
   S.running = false;
+  // A bar sitting at 100 per cent is a green rule across the screen, not
+  // feedback. It reports the finish, then gets out of the way.
+  setTimeout(() => { if (!S.running) $('rf-meter').style.width = '0%'; }, 700);
   S.uploading = false;
   S.endedAt = Date.now();
   for (const node of document.querySelectorAll('.scenario')) node.disabled = false;
@@ -822,8 +978,11 @@ function follow(jobId) {
         const job = await api.job(jobId);
         const record = job.result;
         if (job.error) {
-          $('callout-text').replaceChildren(document.createTextNode(job.error.message));
+          // An upload that will not decode is a problem with the form, so it is
+          // reported at the form. Raising the flag card as well would say the
+          // same thing twice, in the place you cannot act on it.
           if (S.scenario && !S.scenario.name) uploadError(job.error.message);
+          else failed(job.error.message);
         }
         if (record) {
           S.upload = record.input?.upload ?? null;
@@ -925,19 +1084,23 @@ function initUpload() {
 // ═════════════════════════════════════════════════════════════════ boot ══
 
 function initTheme() {
+  // Light unless a person asks otherwise. A lookout desk reads this in daylight,
+  // and a console that flips to dark because the laptop is in dark mode is a
+  // console nobody chose. Dark is here for a night desk, behind one button.
   const toggle = $('theme-toggle');
-  const stored = localStorage.getItem('firstsmoke-theme');
-  if (stored) document.documentElement.dataset.theme = stored;
+  const root = document.documentElement;
+  let stored = null;
+  try { stored = localStorage.getItem('firstsmoke-theme'); } catch { /* private mode */ }
+  root.dataset.theme = stored === 'dark' ? 'dark' : 'light';
   const label = () => {
-    const current = document.documentElement.dataset.theme || 'system';
-    toggle.textContent = current === 'dark' ? 'Dark' : current === 'light' ? 'Light' : 'Theme';
+    const dark = root.dataset.theme === 'dark';
+    toggle.textContent = dark ? 'Day desk' : 'Night desk';
+    toggle.setAttribute('aria-label', dark ? 'Switch to the day appearance' : 'Switch to the night appearance');
   };
   label();
   toggle.addEventListener('click', () => {
-    const order = ['', 'light', 'dark'];
-    const next = order[(order.indexOf(document.documentElement.dataset.theme || '') + 1) % order.length];
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('firstsmoke-theme', next); } catch { /* private mode */ }
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('firstsmoke-theme', root.dataset.theme); } catch { /* private mode */ }
     label();
   });
 }
@@ -946,15 +1109,16 @@ function initTheme() {
   initTheme();
   drawMethod();
   initUpload();
+  $('tb-raw').addEventListener('click', () => {
+    $('wall-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   try {
-    const [network, scenarios, version, config] = await Promise.all([
+    const [network, scenarios, config] = await Promise.all([
       fetch('/api/network').then((r) => r.json()),
       fetch('/api/scenarios').then((r) => r.json()),
-      api.version(),
       api.config(),
     ]);
     S.network = network;
-    S.version = version;
     S.config = config;
     const attribution = $('attribution');
     if (attribution && network.attribution) attribution.textContent = network.attribution;

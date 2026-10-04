@@ -1,83 +1,81 @@
 # Firstsmoke
 
 A lookout for mountain-top camera networks. It finds the first smoke column of a
-wildfire, asks the neighbouring cameras when it is unsure, and crosses their
-bearings on a map.
+wildfire, corroborates it against the cameras that overlook the same bearing, and
+ranks what it finds so the person on the desk opens the right flag first.
 
-**Live: https://afynmqkk9e.eu-west-1.awsapprunner.com** (AWS App Runner, eu-west-1, image `fs-21772f1`, commit `21772f1`)
+**Live: https://afynmqkk9e.eu-west-1.awsapprunner.com** (AWS App Runner, eu-west-1)
 **Repository: https://github.com/smithadams0019/firstsmoke**
 
-Built for the OpenCV AI Competition 2026. OpenCV 5.0.0, pinned.
+OpenCV 5.0.0, pinned.
 
 ---
 
+## The result
+
+On the 130-sequence held-out FIgLib test set, with the threshold and calibration frozen
+before a single test sequence was downloaded, at the shipped operating point of 0.45:
+
+| At 0.45, map calibration | Test set, 130 held out | Development set, 64 |
+|---|---|---|
+| One camera: fires found | **100 of 129 — 77.5%** | 50 of 63 — 79.4% |
+| One camera: false-positive frames per camera-day | **154.2** | 150.3 |
+| One camera: median alert after the human mark | **+240 s** | +438 s |
+| Alerts ahead of the human mark | **0 of 100** | 0 |
+| Triangulation: fixes / median spread between pair fixes | **5 of 17 / 6.3 km** | 2 of 8 / 7.4 km |
+
+154.2 false-positive frames a camera-day is about **one clear frame in nine**. That is
+the number this product is organised around. Finding smoke is not what defeats a camera
+network; a duty officer handed a hundred flags an hour, with nothing to say which to
+open, is.
+
+**The second camera is not a gate, and we measured why.** On the 67 held-out fires that
+two or more summits recorded, requiring two cameras to agree finds 29.9% of them at
+19.6 false-positive frames a camera-day; raising one camera's own bar to 0.55 instead
+finds 43.3% at 16.2 — more fires for fewer false alarms, from one camera. So
+corroboration orders the queue and attaches a position, rather than deciding whether
+anything is raised at all. `docs/evaluation.md` §1 has the full curve.
+
+Two more things the test set settled: the per-camera calibration made no measurable
+difference (154.2 false alarms a camera-day with or without it, and the same 100 fires
+found), and triangulation on real data lands kilometres apart, though on rendered
+incidents where we placed the fire the fix lands 13 m from the truth.
+
+No field deployment trial exists for this system or, as far as we could find, for any
+comparable one. Full numbers and every failure case:
+**[docs/evaluation.md](docs/evaluation.md)**.
+
 ## What it is
 
-Most wildfire camera systems are classifiers: a frame goes in, a probability
-comes out. That design cannot separate a smoke column from a cloud, because in a
-single frame they look the same. Both are grey, both are soft-edged, both
-desaturate what is behind them.
+Most wildfire camera systems are classifiers: a frame goes in, a probability comes out.
+That design cannot separate a smoke column from a cloud, because in a single frame they
+look the same. Both are grey, both are soft-edged, both desaturate what is behind them.
 
-Firstsmoke behaves like a lookout instead. It watches how a shape *behaves*
-over minutes, and when it is unsure it goes and looks somewhere else:
+Firstsmoke behaves like a lookout instead. It watches how a shape *behaves* over
+minutes, and when it is unsure it goes and looks somewhere else:
 
-1. **Detect the change.** A background model per camera, with the sun's movement
-   fitted out rather than learned away, and candidate regions grown by hysteresis
-   so a faint plume top stays attached to its dense base.
-2. **Escalate when unsure.** A weak detection's *pixel column* becomes a compass
-   bearing. The bearing decides which other cameras overlook that patch of
-   ground, and to within a few degrees where in each of their frames to look.
-   Different pixels select different cameras. This is the loop.
-3. **Localise.** Two or more confirmed bearings are crossed on the map, with an
-   uncertainty ellipse from each camera's own angular error.
-4. **Report.** A timestamped alert carrying the frames, the bearings, which
-   cameras were consulted, what each one answered, and the measurement behind
-   every step.
+1. **Detect the change.** A background model per camera, with the sun's movement fitted
+   out rather than learned away, and candidate regions grown by hysteresis so a faint
+   plume top stays attached to its dense base.
+2. **Turn a pixel into a bearing.** A weak detection's *pixel column* becomes a compass
+   bearing. The bearing decides which other cameras overlook that patch of ground, and
+   to within a few degrees where in each of their frames to look. Different pixels
+   select different cameras. This is the loop.
+3. **Rank the queue.** Agreeing bearings are crossed on the map, with an uncertainty
+   ellipse from each camera's own angular error, and that flag sorts first with a
+   position. A confident camera with nobody to cross against still reaches a person,
+   marked `NO_SECOND_VIEW` and carrying no position.
+4. **Report.** A timestamped flag carrying the frames, the bearings, which cameras were
+   consulted, what each answered, and the measurement behind every step.
 
-It also says plainly when a camera cannot be believed: night without
-illumination, fog, rain on the lens, direct sun, or a feed that has frozen. A
-blind camera's silence is never counted as evidence of an empty hillside.
+It also says plainly when a camera cannot be believed: night without illumination, fog,
+rain on the lens, direct sun, or a feed that has frozen. A blind camera's silence is
+never counted as evidence of an empty hillside.
 
-## Honest summary of the results
-
-On all 130 sequences of the held-out FIgLib test set (configuration frozen before
-download), at the shipped point: **one camera finds 76.9% of fires at 154.2 false
-alarms per camera-day, a median of 240 s after the human who labelled them. With a
-second camera required to agree, it finds 29.9% at 19.6.** On the 64 development
-sequences where the threshold was chosen, those figures were 79.4% at 150 (+438 s)
-and 42.4% at 21.7.
-
-| At 0.45 | Test, all 130 (full run) | Test, first 94 (interim) | Development (64) |
-|---|---|---|---|
-| One camera: fires found | **76.9%** | 78.7% | 79.4% |
-| One camera: false alarms per camera-day | **154.2** | 151.6 | 150.3 |
-| One camera: median alert after the human mark | **+240 s** | +210 s | +438 s |
-| Two cameras agreeing: fires found | **29.9%** | 28.6% | 42.4% |
-| Two cameras agreeing: false alarms per camera-day | **19.6** | 18.4 | 21.7 |
-| Triangulation: median spread between pair fixes | **6.3 km** | 3.8 km | 7.4 km |
-
-The film quotes the 94-sequence interim numbers ("94 of 130"), recorded before the
-full run finished. 33 individual test frames timed out during download and are
-missing; the full run scored the 10,107 frames that arrived.
-
-- The per-camera calibration made no measurable difference on test: 154.2 false
-  alarms a camera-day on all 130, with or without it.
-- Two-camera detection fell from 42.4% on dev to 29.9% on test.
-- It never alerted ahead of the human mark.
-- Triangulation on real data lands kilometres apart: pair fixes a median 6.3 km
-  apart on test. On synthetic incidents where we placed the fire, the fix lands 13 m
-  from the truth.
-- It is not deployable at these false-alarm rates.
-
-On real footage through the upload page, a Waldo Canyon time-lapse raised 27 flags,
-9 of them on cloud before any smoke appeared, with the highest score on the smoke
-column. A Grand Canyon cloud time-lapse raised 5 false flags. A faint prescribed-burn
-wisp in North Derby Gulch was missed.
-
-Full numbers, failure cases and what they mean: **[docs/evaluation.md](docs/evaluation.md)**.
-
-No field deployment trial exists for this system or, as far as we could find, for
-any comparable one.
+On real footage through the upload page, a Waldo Canyon time-lapse raised 27 flags, 9 of
+them on cloud before any smoke appeared, with the highest score on the smoke column. A
+Grand Canyon cloud time-lapse raised 5 flags with no fire present. A faint
+prescribed-burn wisp in North Derby Gulch was missed.
 
 ## Pinned dependencies
 
@@ -166,8 +164,6 @@ infra/apprunner.sh firstsmoke --status
 ```
 
 Prefix both with `AWS_REGION=eu-west-1` to reproduce the current deployment.
-**[docs/costs.md](docs/costs.md)** explains why it is not in us-east-1, lists every
-resource created, and gives the hourly cost.
 
 Build the image alone:
 
@@ -183,7 +179,8 @@ docker run --rm -p 8098:8080 firstsmoke:local
 | [docs/report.md](docs/report.md) | the technical report: problem, users, architecture, OpenCV 5 implementation, AWS, evaluation, limitations, responsible use |
 | [docs/evaluation.md](docs/evaluation.md) | the numbers, the failure cases, and what the evaluation does not establish |
 | [docs/architecture.md](docs/architecture.md) | Mermaid diagrams of the pipeline, the agent loop and the AWS components |
-| [docs/costs.md](docs/costs.md) | what is running on AWS and what it costs |
+| [docs/devpost.md](docs/devpost.md) | the submission text |
+| [docs/narration.md](docs/narration.md) | the video script, in three acts |
 | [docs/screens/](docs/screens/) | screenshots taken from the running service, not from a mockup |
 
 ## Layout
@@ -213,7 +210,7 @@ src/firstsmoke/
 
 | | |
 |---|---|
-| This code | MIT (see `LICENSE`) |
+| This code | ours |
 | HPWREN imagery and camera metadata | CC BY-NC-ND 4.0, http://hpwren.ucsd.edu, not redistributed here |
 | `pyronear/pyro-sdis` (confirmer training data) | Apache-2.0 |
 | The trained confirmer | ours, trained only on Apache-2.0 data |

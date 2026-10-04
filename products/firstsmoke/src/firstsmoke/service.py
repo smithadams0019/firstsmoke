@@ -349,7 +349,8 @@ def build_config() -> ServiceConfig:
                 "step": 0.05,
                 "help": (
                     "Below this a camera stays quiet. "
-                    f"Between this and {CONFIRM_AT:.2f} it consults."
+                    f"Between this and {CONFIRM_AT:.2f} it asks the cameras "
+                    "that overlook the same bearing."
                 ),
             },
             {

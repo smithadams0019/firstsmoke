@@ -448,13 +448,16 @@ class Evaluation:
     def corroboration_curve(
         self, network: Network, *, tolerance_s: int = 120
     ) -> list[dict[str, Any]]:
-        """What the second camera is worth.
+        """What the second camera is worth, measured as a gate.
 
-        The operating curve above measures one camera on its own, which is not
-        what this product does. The product requires a second camera on a
-        different summit to see the same thing on a bearing that crosses the
-        first one in front of both of them. This measures exactly that rule,
-        against the same stored numbers.
+        The operating curve above measures one camera on its own. This one
+        measures the stricter rule the product was originally designed around: a
+        second camera on a different summit must see the same thing, on a bearing
+        that crosses the first one in front of both of them. It is reported
+        beside the one-camera numbers on the same fires so the two can be
+        compared directly — and when they are, the gate loses on both axes
+        (docs/evaluation.md §1), which is why corroboration ranks the queue
+        instead of filtering it.
 
         It can only be measured on the dates where two or more cameras on
         different summits recorded the same fire, which in this evaluation set
